@@ -3,9 +3,19 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def normalize_database_url(url: str) -> str:
+    """Render/Heroku style postgres:// → SQLAlchemy + psycopg."""
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url[len("postgres://") :]
+    if url.startswith("postgresql://") and "+psycopg" not in url:
+        return "postgresql+psycopg://" + url[len("postgresql://") :]
+    return url
 
 
 class Settings(BaseSettings):
@@ -24,6 +34,13 @@ class Settings(BaseSettings):
     debug: bool = False
     session_cookie_name: str = "phacostats_session"
     session_max_age_seconds: int = 60 * 60 * 12  # 12 hours
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _db_url(cls, value: object) -> object:
+        if isinstance(value, str):
+            return normalize_database_url(value)
+        return value
 
 
 @lru_cache

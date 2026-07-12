@@ -53,14 +53,35 @@ Matriz en `app/permissions.py`.
 
 > El rol Coordinadora tiene acceso operativo a la lista de cirugías y seguimiento de reintervenciones, pero no tiene acceso a métricas clínicas individuales o comparativas de cirujanos.
 
-## Publicación
+## Publicación en Render (recomendado)
 
-1. `SECRET_KEY` fuerte y único en `.env`
+El repo ya incluye `render.yaml` (web + PostgreSQL gratis).
+
+1. Entra en [https://render.com](https://render.com) e inicia sesión con GitHub (`Cornea35`).
+2. **New → Blueprint** → selecciona el repo **PhacoStatsV1**.
+3. Aplica el blueprint (crea `phacostats-v1` + base `phacostats-db`).
+4. Espera el primer deploy (unos minutos).
+5. Abre la URL tipo `https://phacostats-v1.onrender.com`.
+6. Entra con `admin` / `admin123` y **cambia las contraseñas**.
+
+Variables que Render configura solo:
+
+| Variable | Valor |
+|----------|--------|
+| `DATABASE_URL` | PostgreSQL del blueprint (persistente) |
+| `SECRET_KEY` | Generado automáticamente |
+| `DEBUG` | `false` |
+
+**Importante:** no uses solo SQLite en Render free: el disco se borra al redesplegar. PostgreSQL del blueprint conserva cirugías y usuarios.
+
+### Checklist de publicación
+
+1. `SECRET_KEY` fuerte (Render lo genera)
 2. `DEBUG=false`
-3. Preferir PostgreSQL en producción (`DATABASE_URL=postgresql+psycopg://...`)
-4. HTTPS / reverse proxy (nginx, Caddy, etc.)
-5. Cambiar contraseñas de las cuentas iniciales
-6. No subir `.env`, `*.db` ni backups al repositorio
+3. PostgreSQL (`DATABASE_URL`)
+4. HTTPS (incluido en Render)
+5. Cambiar contraseñas iniciales
+6. No subir `.env` ni `*.db` al repositorio
 
 ## Tests
 

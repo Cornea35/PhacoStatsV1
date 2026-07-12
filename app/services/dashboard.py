@@ -92,7 +92,13 @@ def compute_dashboard(
     )
     rate = round((complication_count / total) * 100, 2) if total else 0.0
 
-    month_expr = func.strftime("%Y-%m", Surgery.surgery_date)
+    from app.config import get_settings
+
+    settings = get_settings()
+    if settings.database_url.startswith("sqlite"):
+        month_expr = func.strftime("%Y-%m", Surgery.surgery_date)
+    else:
+        month_expr = func.to_char(Surgery.surgery_date, "YYYY-MM")
     monthly_rows = (
         db.query(
             month_expr.label("ym"),
