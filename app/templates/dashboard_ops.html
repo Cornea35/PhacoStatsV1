@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Inicio operativo · PhacoStats{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="h3 mb-0">Inicio operativo</h1>
+    <p class="text-muted mb-0 small">Vista institucional ({{ range_label }}). Sin métricas de desempeño por cirujano.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-primary" href="/surgeries/export.xlsx">Exportar</a>
+    <a class="btn btn-primary" href="/reinterventions/pending">Pendientes</a>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" action="/dashboard" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label" for="period">Periodo</label>
+        <select class="form-select" id="period" name="period">
+          <option value="all" {% if period == 'all' %}selected{% endif %}>Totales</option>
+          <option value="month" {% if period == 'month' %}selected{% endif %}>Por mes</option>
+          <option value="custom" {% if period == 'custom' %}selected{% endif %}>Rango</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="month">Mes</label>
+        <input type="month" class="form-control" id="month" name="month" value="{{ month_value }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="date_from">Desde</label>
+        <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from_value }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="date_to">Hasta</label>
+        <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to_value }}">
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-primary w-100" type="submit">Aplicar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="kpi-tile h-100"><div class="kpi-label">Cirugías (periodo)</div><div class="kpi-value">{{ ops.total_surgeries }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="kpi-tile kpi-tile-soft h-100"><div class="kpi-label">Con complicación</div><div class="kpi-value">{{ ops.with_complication }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="kpi-tile kpi-tile-white h-100"><div class="kpi-label">Sin complicación</div><div class="kpi-value">{{ ops.without_complication }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="kpi-tile kpi-tile-soft h-100"><div class="kpi-label">Registros incompletos</div><div class="kpi-value">{{ ops.incomplete_records }}</div></div></div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="text-muted small">Reintervenciones pendientes</div><div class="fs-3 fw-semibold">{{ ops.reintervention_pending }}</div></div></div></div>
+  <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="text-muted small">Programadas</div><div class="fs-3 fw-semibold">{{ ops.reintervention_scheduled }}</div></div></div></div>
+  <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="text-muted small">Completadas</div><div class="fs-3 fw-semibold">{{ ops.reintervention_completed }}</div></div></div></div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h2 class="h5">Tareas pendientes</h2>
+    {% if ops.pending_tasks %}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Código</th><th>Cirujano</th><th>Estado</th><th></th></tr></thead>
+        <tbody>
+        {% for t in ops.pending_tasks %}
+          <tr>
+            <td><code>{{ t.case_code }}</code></td>
+            <td>{{ t.surgeon }}</td>
+            <td>{{ status_labels.get(t.status, t.status) }}</td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary" href="/reinterventions/{{ t.id }}/edit">Abrir</a>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted mb-0">No hay seguimientos pendientes o programados en el periodo.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

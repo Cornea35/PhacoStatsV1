@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Perfil · PhacoStats{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Perfil</h1>
+<div class="card card-body">
+  <dl class="row mb-0">
+    <dt class="col-sm-3">Nombre</dt><dd class="col-sm-9">{{ user.full_name }}</dd>
+    <dt class="col-sm-3">Usuario</dt><dd class="col-sm-9">{{ user.username }}</dd>
+    <dt class="col-sm-3">Rol</dt><dd class="col-sm-9">{{ role_label }}</dd>
+    <dt class="col-sm-3">Institución</dt><dd class="col-sm-9">{{ user.institution_id }}</dd>
+  </dl>
+</div>
+{% endblock %}

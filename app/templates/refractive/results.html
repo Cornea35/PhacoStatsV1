@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}Resultados refractivos · PhacoStats{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h3 refractive-title mb-1">Resultados refractivos (5 Star Rating)</h1>
+    <p class="text-muted small mb-0">
+      Cilindro negativo · {% if scoped %}sus cirugías{% else %}vista institucional{% endif %}
+      · n casos = {{ refractive.n_cases }}
+    </p>
+  </div>
+  <div class="d-flex flex-wrap gap-1">
+    <a class="btn btn-sm btn-outline-primary" href="/refractive/export.xlsx?{{ request.query_string.decode() if request.query_string else '' }}">Excel</a>
+    <a class="btn btn-sm btn-outline-primary" href="/refractive/export.csv?{{ request.query_string.decode() if request.query_string else '' }}">CSV</a>
+    <a class="btn btn-sm btn-outline-primary" href="/refractive/export.pdf?{{ request.query_string.decode() if request.query_string else '' }}">PDF</a>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h2 class="h6 mb-3">Filtros</h2>
+    <form method="get" action="/refractive" class="row g-2 align-items-end" id="rxFilterForm">
+      <div class="col-md-3">
+        <label class="form-label small" for="period">Periodo de cirugía</label>
+        <select class="form-select form-select-sm" id="period" name="period">
+          <option value="all" {% if period == 'all' %}selected{% endif %}>Totales</option>
+          <option value="month" {% if period == 'month' %}selected{% endif %}>Por mes</option>
+          <option value="custom" {% if period == 'custom' %}selected{% endif %}>Rango personalizado</option>
+        </select>
+      </div>
+      <div class="col-md-3" id="monthField">
+        <label class="form-label small" for="month">Mes</label>
+        <input class="form-control form-control-sm" type="month" id="month" name="month" value="{{ month_value }}">
+      </div>
+      <div class="col-md-3" id="fromField">
+        <label class="form-label small" for="date_from">Cirugía desde</label>
+        <input class="form-control form-control-sm" type="date" id="date_from" name="date_from" value="{{ date_from_value }}">
+      </div>
+      <div class="col-md-3" id="toField">
+        <label class="form-label small" for="date_to">Cirugía hasta</label>
+        <input class="form-control form-control-sm" type="date" id="date_to" name="date_to" value="{{ date_to_value }}">
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label small" for="rx_window">Ventana de visita</label>
+        <select class="form-select form-select-sm" id="rx_window" name="rx_window">
+          <option value="last_visit" {% if rx_window == 'last_visit' %}selected{% endif %}>Última visita</option>
+          <option value="month_1" {% if rx_window == 'month_1' %}selected{% endif %}>Mes 1</option>
+          <option value="month_3" {% if rx_window == 'month_3' %}selected{% endif %}>Mes 3</option>
+          <option value="month_6" {% if rx_window == 'month_6' %}selected{% endif %}>Mes 6</option>
+          <option value="year_1" {% if rx_window == 'year_1' %}selected{% endif %}>Año 1</option>
+          <option value="custom" {% if rx_window == 'custom' %}selected{% endif %}>Rango personalizado</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small" for="rx_iol">LIO</label>
+        <select class="form-select form-select-sm" id="rx_iol" name="rx_iol">
+          <option value="">Todas</option>
+          {% for code, label in iol_types.items() %}
+          <option value="{{ code }}" {% if rx_iol == code %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small" for="rx_eye">Ojo</label>
+        <select class="form-select form-select-sm" id="rx_eye" name="rx_eye">
+          <option value="">OD/OS</option>
+          {% for e in eyes %}
+          <option value="{{ e.value }}" {% if rx_eye == e.value %}selected{% endif %}>{{ e.value }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if not scoped %}
+      <div class="col-md-3">
+        <label class="form-label small" for="rx_surgeon">Cirujano</label>
+        <select class="form-select form-select-sm" id="rx_surgeon" name="rx_surgeon">
+          <option value="">Todos</option>
+          {% for s in surgeons %}
+          <option value="{{ s.id }}" {% if rx_surgeon|string == s.id|string %}selected{% endif %}>{{ s.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="col-md-2">
+        <label class="form-label small" for="rx_institution">Institución</label>
+        <input class="form-control form-control-sm" id="rx_institution" name="rx_institution"
+               value="{{ rx_institution }}" placeholder="{{ default_institution }}">
+      </div>
+      <div class="col-md-2" id="rxFromField">
+        <label class="form-label small" for="rx_from">Visita desde</label>
+        <input class="form-control form-control-sm" type="date" id="rx_from" name="rx_from" value="{{ rx_from }}">
+      </div>
+      <div class="col-md-2" id="rxToField">
+        <label class="form-label small" for="rx_to">Visita hasta</label>
+        <input class="form-control form-control-sm" type="date" id="rx_to" name="rx_to" value="{{ rx_to }}">
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-sm btn-primary" type="submit">Aplicar</button>
+      </div>
+    </form>
+    <p class="text-muted small mb-0 mt-3">Cirugías: <strong>{{ range_label }}</strong></p>
+  </div>
+</div>
+
+<div class="card mb-4 border-0 shadow-sm refractive-panel">
+  <div class="card-body">
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <div class="rx-star-card">
+          <div class="rx-star-label">EQ. ESFÉRICO</div>
+          <div class="rx-star-value">
+            {% if refractive.avg_seq_stars_display is not none %}{{ '%.1f'|format(refractive.avg_seq_stars_display) }}{% else %}—{% endif %}
+            <span class="rx-star">★</span>
+          </div>
+          <div class="rx-star-n text-muted small">n = {{ refractive.n_seq }}</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="rx-star-card">
+          <div class="rx-star-label">ASTIGMATISMO</div>
+          <div class="rx-star-value">
+            {% if refractive.avg_astig_stars_display is not none %}{{ '%.1f'|format(refractive.avg_astig_stars_display) }}{% else %}—{% endif %}
+            <span class="rx-star">★</span>
+          </div>
+          <div class="rx-star-n text-muted small">n = {{ refractive.n_astig }}</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="rx-star-card rx-star-card-accent" title="Resultado refractivo global = promedio de las estrellas de equivalente esférico y astigmatismo de cada caso.">
+          <div class="rx-star-label">RESULTADO REFRACTIVO GLOBAL</div>
+          <div class="rx-star-value">
+            {% if refractive.avg_overall_stars_display is not none %}{{ '%.1f'|format(refractive.avg_overall_stars_display) }}{% else %}—{% endif %}
+            <span class="rx-star">★</span>
+          </div>
+          <div class="rx-star-n text-muted small">n = {{ refractive.n_overall }}</div>
+        </div>
+      </div>
+    </div>
+    <p class="small text-muted mb-3">
+      Resultado refractivo global = promedio de estrellas SEQ y astigmatismo por caso
+      (no es un índice de calidad quirúrgica).
+      Casos completos: {{ refractive.n_complete }}
+      · excluidos por datos faltantes: {{ refractive.n_excluded_missing }}
+      {% if refractive.n_seq != refractive.n_overall or refractive.n_astig != refractive.n_overall %}
+      · <strong>aviso:</strong> los n difieren entre tarjetas
+      {% endif %}
+    </p>
+
+    <div class="row g-3 mb-3">
+      <div class="col-lg-5">
+        <h2 class="h6">Distribución de estrellas SEQ (porcentaje)</h2>
+        <div class="chart-canvas-wrap" style="height:180px"><canvas id="chartSeqStars"></canvas></div>
+        <h2 class="h6 mt-3">Distribución de estrellas de astigmatismo</h2>
+        <div class="chart-canvas-wrap" style="height:180px"><canvas id="chartAstigStars"></canvas></div>
+        <h2 class="h6 mt-3">Resultado refractivo global (bins)</h2>
+        <p class="small text-muted mb-1">Bins: 1.0–&lt;1.5 · 1.5–&lt;2.5 · 2.5–&lt;3.5 · 3.5–&lt;4.5 · 4.5–5.0</p>
+        <div class="chart-canvas-wrap" style="height:180px"><canvas id="chartOverallBins"></canvas></div>
+        <h2 class="h6 mt-3">Orientación del astigmatismo</h2>
+        <ul class="small mb-0">
+          <li>WTR: {{ refractive.orientation_pct.get('wtr', 0) }}% (n={{ refractive.orientation_counts.get('wtr', 0) }})</li>
+          <li>ATR: {{ refractive.orientation_pct.get('atr', 0) }}% (n={{ refractive.orientation_counts.get('atr', 0) }})</li>
+          <li>Oblicuo: {{ refractive.orientation_pct.get('oblique', 0) }}% (n={{ refractive.orientation_counts.get('oblique', 0) }})</li>
+          <li>Ninguno: {{ refractive.orientation_pct.get('none', 0) }}% (n={{ refractive.orientation_counts.get('none', 0) }})</li>
+        </ul>
+        <p class="small text-muted mt-2 mb-0">
+          J0 medio: {% if refractive.mean_j0 is not none %}{{ '%.3f'|format(refractive.mean_j0) }}{% else %}—{% endif %}
+          · J45 medio: {% if refractive.mean_j45 is not none %}{{ '%.3f'|format(refractive.mean_j45) }}{% else %}—{% endif %}
+          · Cil. firmado medio: {% if refractive.mean_cylinder_signed is not none %}{{ '%.2f'|format(refractive.mean_cylinder_signed) }} D{% else %}—{% endif %}
+        </p>
+      </div>
+      <div class="col-lg-7">
+        <h2 class="h6">Astigmatismo residual (doble ángulo · cilindro negativo)</h2>
+        <div class="polar-wrap">
+          <canvas id="chartPolarAstig" width="420" height="420"></canvas>
+        </div>
+        <p class="small text-muted text-center mb-0">
+          Centroide |C| = {{ refractive.mean_vector.get('magnitude', 0) }} D
+          · eje medio (vector) =
+          {% if refractive.mean_vector.get('mean_axis') is not none %}
+            {{ '%.1f'|format(refractive.mean_vector.mean_axis) }}°
+          {% else %}—{% endif %}
+        </p>
+      </div>
+    </div>
+
+    <details class="mt-2">
+      <summary class="h6">Métricas detalladas</summary>
+      <div class="row g-2 small mt-2">
+        <div class="col-md-4">SEQ media: {% if refractive.mean_seq is not none %}{{ '%.2f'|format(refractive.mean_seq) }} D{% else %}—{% endif %}</div>
+        <div class="col-md-4">SEQ mediana: {% if refractive.median_seq is not none %}{{ '%.2f'|format(refractive.median_seq) }} D{% else %}—{% endif %}</div>
+        <div class="col-md-4">|SEQ| media: {% if refractive.mean_abs_seq is not none %}{{ '%.2f'|format(refractive.mean_abs_seq) }} D{% else %}—{% endif %}</div>
+        <div class="col-md-6">Dentro ±0.25 / 0.50 / 0.75 / 1.00 D:
+          {{ refractive.pct_seq_within.get('0.25', 0) }}% /
+          {{ refractive.pct_seq_within.get('0.50', 0) }}% /
+          {{ refractive.pct_seq_within.get('0.75', 0) }}% /
+          {{ refractive.pct_seq_within.get('1.00', 0) }}%
+        </div>
+        <div class="col-md-6">Cil. residual medio: {% if refractive.mean_residual_cyl is not none %}{{ '%.2f'|format(refractive.mean_residual_cyl) }} D{% else %}—{% endif %}
+          · ≤0.50 D {{ refractive.pct_cyl_le_050 or 0 }}% · ≤1.00 D {{ refractive.pct_cyl_le_100 or 0 }}%
+        </div>
+        <div class="col-md-4">UDVA media (logMAR): {% if refractive.mean_udva_logmar is not none %}{{ '%.2f'|format(refractive.mean_udva_logmar) }}{% else %}—{% endif %}</div>
+        <div class="col-md-4">CDVA media (logMAR): {% if refractive.mean_cdva_logmar is not none %}{{ '%.2f'|format(refractive.mean_cdva_logmar) }}{% else %}—{% endif %}</div>
+        <div class="col-md-4">Completitud de seguimiento: {{ refractive.followup_completeness_pct or 0 }}%</div>
+      </div>
+    </details>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>window.PHACO_REFRACTIVE = {{ refractive_json | safe }};</script>
+<script src="/static/js/refractive_charts.js"></script>
+<script>
+(() => {
+  const form = document.getElementById("rxFilterForm");
+  const period = document.getElementById("period");
+  const monthField = document.getElementById("monthField");
+  const fromField = document.getElementById("fromField");
+  const toField = document.getElementById("toField");
+  const monthInput = document.getElementById("month");
+  const fromInput = document.getElementById("date_from");
+  const toInput = document.getElementById("date_to");
+  const rxWindow = document.getElementById("rx_window");
+  const rxFromField = document.getElementById("rxFromField");
+  const rxToField = document.getElementById("rxToField");
+  if (!form || !period) return;
+
+  const syncFields = () => {
+    const mode = period.value;
+    monthField.classList.toggle("d-none", mode !== "month");
+    fromField.classList.toggle("d-none", mode !== "custom");
+    toField.classList.toggle("d-none", mode !== "custom");
+    monthInput.disabled = mode !== "month";
+    fromInput.disabled = mode !== "custom";
+    toInput.disabled = mode !== "custom";
+    const customVisit = rxWindow && rxWindow.value === "custom";
+    if (rxFromField) rxFromField.classList.toggle("d-none", !customVisit);
+    if (rxToField) rxToField.classList.toggle("d-none", !customVisit);
+  };
+  period.addEventListener("change", syncFields);
+  if (rxWindow) rxWindow.addEventListener("change", syncFields);
+  syncFields();
+})();
+</script>
+{% endblock %}

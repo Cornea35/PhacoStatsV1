@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% block title %}Advanced Analytics · PhacoStats{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-1">Advanced Analytics</h1>
+    <p class="text-muted small mb-0">
+      Módulo administrativo de calidad. Uso exclusivo para mejora continua:
+      no debe ser el único criterio para empleo o credencialización.
+    </p>
+  </div>
+  <a class="btn btn-primary"
+     href="/admin/analytics/export?period={{ period }}{% if period == 'month' %}&month={{ month_value }}{% endif %}{% if period == 'custom' %}&date_from={{ date_from_value }}&date_to={{ date_to_value }}{% endif %}&planned_cases={{ planned_cases }}&max_difference={{ max_difference }}">
+    Export Analytics
+  </a>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h2 class="h6 mb-3">Rango de tiempo</h2>
+    <form id="rangeForm" method="get" action="/admin/analytics" class="row g-3 align-items-end">
+      <input type="hidden" name="planned_cases" value="{{ planned_cases }}">
+      <input type="hidden" name="max_difference" value="{{ max_difference }}">
+      <div class="col-12">
+        <div class="btn-group flex-wrap" role="group">
+          <a class="btn btn-sm {% if period == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+             href="/admin/analytics?period=all&planned_cases={{ planned_cases }}&max_difference={{ max_difference }}">Totales</a>
+          <a class="btn btn-sm {% if period == 'month' and month_value == current_month %}btn-primary{% else %}btn-outline-primary{% endif %}"
+             href="/admin/analytics?period=month&month={{ current_month }}&planned_cases={{ planned_cases }}&max_difference={{ max_difference }}">Este mes</a>
+          <a class="btn btn-sm {% if period == 'month' and month_value == prev_month %}btn-primary{% else %}btn-outline-primary{% endif %}"
+             href="/admin/analytics?period=month&month={{ prev_month }}&planned_cases={{ planned_cases }}&max_difference={{ max_difference }}">Mes anterior</a>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="period">Modo</label>
+        <select class="form-select" id="period" name="period">
+          <option value="all" {% if period == 'all' %}selected{% endif %}>Totales</option>
+          <option value="month" {% if period == 'month' %}selected{% endif %}>Por mes</option>
+          <option value="custom" {% if period == 'custom' %}selected{% endif %}>Rango personalizado</option>
+        </select>
+      </div>
+      <div class="col-md-4" id="monthField">
+        <label class="form-label" for="month">Mes</label>
+        <input class="form-control" type="month" id="month" name="month" value="{{ month_value }}">
+      </div>
+      <div class="col-md-4" id="fromField">
+        <label class="form-label" for="date_from">Desde</label>
+        <input class="form-control" type="date" id="date_from" name="date_from" value="{{ date_from_value }}">
+      </div>
+      <div class="col-md-4" id="toField">
+        <label class="form-label" for="date_to">Hasta</label>
+        <input class="form-control" type="date" id="date_to" name="date_to" value="{{ date_to_value }}">
+      </div>
+    </form>
+    <p class="text-muted small mb-0 mt-3">Mostrando: <strong>{{ range_label }}</strong></p>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="kpi-tile kpi-tile-accent h-100"><div class="kpi-label">Cirugías totales</div><div class="kpi-value">{{ summary.total_surgeries }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="kpi-tile h-100"><div class="kpi-label">RCP</div><div class="kpi-value">{{ summary.total_pcr }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="kpi-tile kpi-tile-soft h-100"><div class="kpi-label">Tasa global</div><div class="kpi-value">{{ "%.2f"|format(summary.global_pcr_rate_pct) }}%</div></div></div>
+  <div class="col-6 col-lg-3"><div class="kpi-tile kpi-tile-white h-100"><div class="kpi-label">Cirujanos</div><div class="kpi-value">{{ summary.surgeon_count }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="kpi-tile kpi-tile-white h-100"><div class="kpi-label">OR promedio</div><div class="kpi-value">{% if summary.average_odds_ratio is not none %}{{ "%.2f"|format(summary.average_odds_ratio) }}{% else %}—{% endif %}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="kpi-tile kpi-tile-soft h-100"><div class="kpi-label">Factor más frecuente</div><div class="kpi-value" style="font-size:1rem">{{ summary.top_risk_factor or '—' }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="kpi-tile h-100"><div class="kpi-label">Menor RCP</div><div class="kpi-value" style="font-size:1rem">{{ summary.lowest_pcr_surgeon or '—' }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="kpi-tile kpi-tile-accent h-100"><div class="kpi-label">Mayor RCP</div><div class="kpi-value" style="font-size:1rem">{{ summary.highest_pcr_surgeon or '—' }}</div></div></div>
+</div>
+
+<div class="card mb-4 border-0 shadow-sm">
+  <div class="card-body">
+    <h2 class="h5 mb-3">Análisis de RCP por cirujano</h2>
+    <p class="text-muted small">OR vs todos los demás cirujanos. Fisher exact (bilateral). Haldane-Anscombe si hay ceros.</p>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Cirujano</th>
+            <th>Cirugías</th>
+            <th>RCP</th>
+            <th>Tasa %</th>
+            <th>OR</th>
+            <th>IC95%</th>
+            <th>p-value</th>
+            <th>RR</th>
+            <th>Diff. abs. riesgo</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for row in surgeon_rows %}
+          <tr>
+            <td class="fw-semibold">{{ row.surgeon_name }}</td>
+            <td>{{ row.surgeries }}</td>
+            <td>{{ row.pcr_events }}</td>
+            <td>{{ "%.2f"|format(row.pcr_rate_pct) }}</td>
+            <td>{% if row.odds_ratio is not none %}{{ "%.2f"|format(row.odds_ratio) }}{% else %}—{% endif %}</td>
+            <td>{% if row.ci_low is not none %}{{ "%.2f"|format(row.ci_low) }}–{{ "%.2f"|format(row.ci_high) }}{% else %}—{% endif %}</td>
+            <td>{% if row.p_value is not none %}{{ "%.4f"|format(row.p_value) }}{% else %}—{% endif %}</td>
+            <td>{% if row.relative_risk is not none %}{{ "%.2f"|format(row.relative_risk) }}{% else %}—{% endif %}</td>
+            <td>{% if row.absolute_risk_difference is not none %}{{ "%.3f"|format(row.absolute_risk_difference) }}{% else %}—{% endif %}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="9" class="text-muted">Sin datos.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-6">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h5">Surgical Distribution Planner</h2>
+        <p class="text-muted small">Riesgo suavizado (RCP+1)/(n+20), peso inverso y ajuste de diferencia máxima.</p>
+        <form method="get" action="/admin/analytics" class="row g-2 align-items-end mb-3">
+          <input type="hidden" name="period" value="{{ period }}">
+          {% if period == 'month' %}<input type="hidden" name="month" value="{{ month_value }}">{% endif %}
+          {% if period == 'custom' %}
+          <input type="hidden" name="date_from" value="{{ date_from_value }}">
+          <input type="hidden" name="date_to" value="{{ date_to_value }}">
+          {% endif %}
+          <div class="col-6">
+            <label class="form-label" for="planned_cases">Cirugías a repartir</label>
+            <input class="form-control" type="number" min="0" max="1000" id="planned_cases" name="planned_cases" value="{{ planned_cases }}">
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="max_difference">Diferencia máxima</label>
+            <input class="form-control" type="number" min="0" max="100" id="max_difference" name="max_difference" value="{{ max_difference }}">
+          </div>
+          <div class="col-12"><button class="btn btn-primary w-100" type="submit">Calcular distribución</button></div>
+        </form>
+        <div class="table-responsive mb-3">
+          <table class="table table-sm mb-0">
+            <thead><tr><th>Cirujano</th><th>RCP</th><th>Riesgo suav.</th><th>Peso</th><th>Casos</th></tr></thead>
+            <tbody>
+            {% for row in distribution %}
+              <tr>
+                <td>{{ row.surgeon_name }}</td>
+                <td>{{ row.pcr_events }}</td>
+                <td>{{ "%.2f"|format(row.smoothed_risk_pct) }}%</td>
+                <td>{{ "%.4f"|format(row.weight) }}</td>
+                <td class="fw-bold">{{ row.suggested_cases }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="5" class="text-muted">Sin cirujanos activos.</td></tr>
+            {% endfor %}
+            </tbody>
+            {% if distribution %}
+            <tfoot><tr><th>Total</th><th></th><th></th><th></th><th>{{ distribution|sum(attribute='suggested_cases') }}</th></tr></tfoot>
+            {% endif %}
+          </table>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartDistribution"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h5">Risk Factors</h2>
+        <p class="text-muted small">Top 10 factores preoperatorios (frecuencia, prevalencia y porcentaje acumulado).</p>
+        <div class="chart-canvas-wrap mb-3"><canvas id="chartRiskBars"></canvas></div>
+        <div class="chart-canvas-wrap mb-3"><canvas id="chartRiskPareto"></canvas></div>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead><tr><th>Factor</th><th>Casos</th><th>%</th><th>% acumulado</th></tr></thead>
+            <tbody>
+            {% for row in risk_factors %}
+              <tr>
+                <td>{{ row.label }}</td>
+                <td>{{ row.cases }}</td>
+                <td>{{ "%.2f"|format(row.prevalence_pct) }}%</td>
+                <td>{{ "%.1f"|format(row.cumulative_pct) }}%</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="4" class="text-muted">Sin factores en el periodo.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4 border-0 shadow-sm">
+  <div class="card-body">
+    <h2 class="h5 mb-1">Reintervenciones por tipo general</h2>
+    <p class="text-muted small mb-3">
+      Número de seguimientos de reintervención (no anulados) en el periodo, según tipo general.
+      Total: <strong>{{ reintervention_total }}</strong>
+    </p>
+    <div class="row g-3">
+      <div class="col-lg-5">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr><th>Tipo general</th><th class="text-end">Número</th></tr>
+            </thead>
+            <tbody>
+            {% for row in reintervention_types %}
+              <tr>
+                <td>{{ row.label }}</td>
+                <td class="text-end fw-semibold">{{ row.count }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="2" class="text-muted">Sin reintervenciones en el periodo.</td></tr>
+            {% endfor %}
+            </tbody>
+            {% if reintervention_types %}
+            <tfoot>
+              <tr><th>Total</th><th class="text-end">{{ reintervention_total }}</th></tr>
+            </tfoot>
+            {% endif %}
+          </table>
+        </div>
+      </div>
+      <div class="col-lg-7">
+        <div class="chart-canvas-wrap" style="height:320px"><canvas id="chartReinterventionTypes"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>window.PHACO_ADMIN_CHARTS = {{ chart_json | safe }};</script>
+<script src="/static/js/admin_analytics.js?v=reint1"></script>
+<script>
+(() => {
+  const form = document.getElementById("rangeForm");
+  const period = document.getElementById("period");
+  const monthField = document.getElementById("monthField");
+  const fromField = document.getElementById("fromField");
+  const toField = document.getElementById("toField");
+  const monthInput = document.getElementById("month");
+  const fromInput = document.getElementById("date_from");
+  const toInput = document.getElementById("date_to");
+  if (!form || !period) return;
+  const syncFields = () => {
+    const mode = period.value;
+    monthField.classList.toggle("d-none", mode !== "month");
+    fromField.classList.toggle("d-none", mode !== "custom");
+    toField.classList.toggle("d-none", mode !== "custom");
+    monthInput.disabled = mode !== "month";
+    fromInput.disabled = mode !== "custom";
+    toInput.disabled = mode !== "custom";
+  };
+  const submitNow = () => {
+    syncFields();
+    form.requestSubmit ? form.requestSubmit() : form.submit();
+  };
+  period.addEventListener("change", () => {
+    syncFields();
+    if (period.value === "all") return submitNow();
+    if (period.value === "month" && monthInput.value) return submitNow();
+    if (period.value === "custom" && fromInput.value && toInput.value) return submitNow();
+  });
+  monthInput.addEventListener("change", () => {
+    if (period.value === "month" && monthInput.value) submitNow();
+  });
+  const maybeCustom = () => {
+    if (period.value === "custom" && fromInput.value && toInput.value) submitNow();
+  };
+  fromInput.addEventListener("change", maybeCustom);
+  toInput.addEventListener("change", maybeCustom);
+  syncFields();
+})();
+</script>
+{% endblock %}

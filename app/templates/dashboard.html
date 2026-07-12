@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · PhacoStats{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="h3 mb-0">Dashboard</h1>
+    {% if scoped %}
+    <p class="text-muted mb-0 small">Vista filtrada a sus cirugías</p>
+    {% else %}
+    <p class="text-muted mb-0 small">Vista institucional (todos los cirujanos)</p>
+    {% endif %}
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-primary" href="/refractive">Resultados refractivos</a>
+    {% if is_admin %}
+    <a class="btn btn-outline-primary" href="/admin/analytics">Advanced Analytics</a>
+    {% endif %}
+    <a class="btn btn-primary" href="/surgeries/new">Nueva cirugía</a>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h2 class="h6 mb-3">Estadísticas por rango de tiempo</h2>
+    <form id="rangeForm" method="get" action="/dashboard" class="row g-3 align-items-end">
+      <div class="col-12">
+        <div class="btn-group flex-wrap" role="group" aria-label="Periodo rápido">
+          <a class="btn btn-sm {% if period == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+             href="/dashboard?period=all">Totales</a>
+          <a class="btn btn-sm {% if period == 'month' and month_value == current_month %}btn-primary{% else %}btn-outline-primary{% endif %}"
+             href="/dashboard?period=month&month={{ current_month }}">Este mes</a>
+          <a class="btn btn-sm {% if period == 'month' and month_value == prev_month %}btn-primary{% else %}btn-outline-primary{% endif %}"
+             href="/dashboard?period=month&month={{ prev_month }}">Mes anterior</a>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label" for="period">Modo</label>
+        <select class="form-select" id="period" name="period">
+          <option value="all" {% if period == 'all' %}selected{% endif %}>Totales</option>
+          <option value="month" {% if period == 'month' %}selected{% endif %}>Por mes</option>
+          <option value="custom" {% if period == 'custom' %}selected{% endif %}>Rango personalizado</option>
+        </select>
+      </div>
+      <div class="col-md-4" id="monthField">
+        <label class="form-label" for="month">Mes</label>
+        <input class="form-control" type="month" id="month" name="month" value="{{ month_value }}">
+      </div>
+      <div class="col-md-4" id="fromField">
+        <label class="form-label" for="date_from">Desde</label>
+        <input class="form-control" type="date" id="date_from" name="date_from" value="{{ date_from_value }}">
+      </div>
+      <div class="col-md-4" id="toField">
+        <label class="form-label" for="date_to">Hasta</label>
+        <input class="form-control" type="date" id="date_to" name="date_to" value="{{ date_to_value }}">
+      </div>
+    </form>
+    <p class="text-muted small mb-0 mt-3">Mostrando: <strong>{{ range_label }}</strong></p>
+  </div>
+</div>
+
+<div class="row g-3 mb-4 kpi-row">
+  <div class="col-md-3">
+    <div class="kpi-tile kpi-tile-accent h-100">
+      <div class="kpi-label">Cirugías {% if period == 'all' %}totales{% else %}en el periodo{% endif %}</div>
+      <div class="kpi-value">{{ stats.total_surgeries }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-tile h-100">
+      <div class="kpi-label">Complicaciones</div>
+      <div class="kpi-value">{{ stats.total_complications }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-tile kpi-tile-soft h-100">
+      <div class="kpi-label">% complicaciones</div>
+      <div class="kpi-value">{{ "%.2f"|format(stats.complication_rate_pct) }}%</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-tile kpi-tile-white h-100">
+      <div class="kpi-label">De ellas, RCP</div>
+      <div class="kpi-value">{{ stats.total_pcr }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 chart-grid">
+  <div class="col-lg-6">
+    <div class="chart-panel chart-panel-soft h-100">
+      <h2 class="chart-title">Serie mensual</h2>
+      <div class="chart-canvas-wrap"><canvas id="chartMonthly"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="chart-panel chart-panel-white h-100">
+      <h2 class="chart-title">Por cirujano</h2>
+      <div class="chart-canvas-wrap"><canvas id="chartSurgeons"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="chart-panel chart-panel-soft h-100">
+      <h2 class="chart-title">Complicaciones por etapa</h2>
+      <div class="chart-canvas-wrap"><canvas id="chartStages"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="chart-panel chart-panel-white h-100">
+      <h2 class="chart-title">Por tipo de complicación</h2>
+      <div class="chart-canvas-wrap"><canvas id="chartTypes"></canvas></div>
+    </div>
+  </div>
+  <div class="col-12">
+    <div class="chart-panel chart-panel-soft h-100">
+      <h2 class="chart-title">Factores de riesgo más frecuentes</h2>
+      <p class="text-muted small mb-2">Top 10 en el periodo seleccionado (casos con el factor)</p>
+      <div class="row g-3 align-items-start">
+        <div class="col-lg-8">
+          <div class="chart-canvas-wrap" style="height:320px"><canvas id="chartRisks"></canvas></div>
+        </div>
+        <div class="col-lg-4">
+          <div class="table-responsive">
+            <table class="table table-sm mb-0 bg-white rounded">
+              <thead>
+                <tr><th>Factor</th><th class="text-end">Casos</th><th class="text-end">%</th></tr>
+              </thead>
+              <tbody>
+              {% for label in stats.risk_labels %}
+                <tr>
+                  <td>{{ label }}</td>
+                  <td class="text-end">{{ stats.risk_counts[loop.index0] }}</td>
+                  <td class="text-end">{{ "%.1f"|format(stats.risk_pct[loop.index0]) }}%</td>
+                </tr>
+              {% else %}
+                <tr><td colspan="3" class="text-muted">Sin factores registrados en el periodo.</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>window.PHACO_CHARTS = {{ chart_json | safe }};</script>
+<script src="/static/js/dashboard.js?v=risk2"></script>
+<script>
+(() => {
+  const form = document.getElementById("rangeForm");
+  const period = document.getElementById("period");
+  const monthField = document.getElementById("monthField");
+  const fromField = document.getElementById("fromField");
+  const toField = document.getElementById("toField");
+  const monthInput = document.getElementById("month");
+  const fromInput = document.getElementById("date_from");
+  const toInput = document.getElementById("date_to");
+  if (!form || !period) return;
+  const syncFields = () => {
+    const mode = period.value;
+    monthField.classList.toggle("d-none", mode !== "month");
+    fromField.classList.toggle("d-none", mode !== "custom");
+    toField.classList.toggle("d-none", mode !== "custom");
+    monthInput.disabled = mode !== "month";
+    fromInput.disabled = mode !== "custom";
+    toInput.disabled = mode !== "custom";
+  };
+  const submitNow = () => {
+    syncFields();
+    form.requestSubmit ? form.requestSubmit() : form.submit();
+  };
+  period.addEventListener("change", () => {
+    syncFields();
+    if (period.value === "all") return submitNow();
+    if (period.value === "month" && monthInput.value) return submitNow();
+    if (period.value === "custom" && fromInput.value && toInput.value) return submitNow();
+  });
+  monthInput.addEventListener("change", () => {
+    if (period.value === "month" && monthInput.value) submitNow();
+  });
+  const maybeSubmitCustom = () => {
+    if (period.value === "custom" && fromInput.value && toInput.value) submitNow();
+  };
+  fromInput.addEventListener("change", maybeSubmitCustom);
+  toInput.addEventListener("change", maybeSubmitCustom);
+  syncFields();
+})();
+</script>
+{% endblock %}

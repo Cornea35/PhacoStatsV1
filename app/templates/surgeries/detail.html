@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}{{ surgery.case_code }} · PhacoStats{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="h3 mb-1"><code>{{ surgery.case_code }}</code></h1>
+    <p class="text-muted mb-0">{{ surgery.surgery_date }} · {{ surgery.eye }} · {{ surgery.surgeon.full_name }}</p>
+  </div>
+  <a class="btn btn-outline-primary" href="/surgeries/{{ surgery.id }}/edit">Editar</a>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h2 class="h5">Datos quirúrgicos</h2>
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Técnica</dt><dd class="col-sm-8">{{ surgery.technique }}</dd>
+          <dt class="col-sm-4">Tipo de LIO</dt>
+          <dd class="col-sm-8">{{ iol_types.get(surgery.iol_type, surgery.iol_type or '—') }}</dd>
+          <dt class="col-sm-4">Institución</dt><dd class="col-sm-8">{{ surgery.institution_id or 'CODET' }}</dd>
+          <dt class="col-sm-4">Notas</dt><dd class="col-sm-8">{{ surgery.notes or '—' }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h2 class="h5">Factores de riesgo</h2>
+        {% if surgery.risk_factors %}
+        <ul class="mb-0">
+          {% for rf in surgery.risk_factors %}
+          <li>{{ risk_catalog.get(rf.code, rf.code) }}</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted mb-0">Ninguno registrado</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <h2 class="h5">Complicaciones</h2>
+        {% set comp = surgery.complication %}
+        {% if comp and comp.occurred %}
+        <p><span class="badge text-bg-danger">{{ complication_labels.get(comp.complication_type, 'Complicación') }}</span></p>
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Etapa</dt>
+          <dd class="col-sm-8">{{ stage_labels.get(comp.surgical_stage, comp.surgical_stage) }}</dd>
+          <dt class="col-sm-4">Pérdida vítrea</dt>
+          <dd class="col-sm-8">{{ 'Sí' if comp.vitreous_loss else 'No' }}</dd>
+          <dt class="col-sm-4">Vitrectomía anterior</dt>
+          <dd class="col-sm-8">{{ 'Sí' if comp.anterior_vitrectomy else 'No' }}</dd>
+          <dt class="col-sm-4">Fragmentos a SP</dt>
+          <dd class="col-sm-8">{{ 'Sí' if comp.fragments_to_posterior else 'No' }}</dd>
+          <dt class="col-sm-4">Intervención retina</dt>
+          <dd class="col-sm-8">{{ 'Sí' if comp.retina_intervention else 'No' }}</dd>
+          <dt class="col-sm-4">Posición LIO</dt>
+          <dd class="col-sm-8">{{ iol_labels.get(comp.iol_position, comp.iol_position) }}</dd>
+          <dt class="col-sm-4">Anillo de tensión capsular</dt>
+          <dd class="col-sm-8">{{ 'Sí' if comp.capsular_tension_ring else 'No' }}</dd>
+          <dt class="col-sm-4">Sutura de segmento/anillo</dt>
+          <dd class="col-sm-8">{{ 'Sí' if comp.segment_ring_suture else 'No' }}</dd>
+          <dt class="col-sm-4">Ayuda de F2 o adscrito</dt>
+          <dd class="col-sm-8">{{ 'Sí' if comp.f2_assistant_help else 'No' }}</dd>
+        </dl>
+        {% else %}
+        <p class="mb-0"><span class="badge text-bg-success">Sin complicación</span></p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card border-primary">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h2 class="h5 mb-0">Seguimiento refractivo</h2>
+          <a class="btn btn-primary btn-sm" href="/surgeries/{{ surgery.id }}/follow-ups/new">Añadir seguimiento</a>
+        </div>
+        {% if follow_ups %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Días PO</th>
+                <th>AV</th>
+                <th>Refracción</th>
+                <th>SEQ</th>
+                <th>Estrellas</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for fu in follow_ups %}
+              <tr class="{% if fu.is_voided %}table-secondary text-muted{% endif %}">
+                <td>{{ fu.visit_date }}</td>
+                <td>{{ visit_labels.get(fu.visit_type, fu.visit_type) }}{% if fu.is_voided %} <span class="badge text-bg-secondary">Anulada</span>{% endif %}</td>
+                <td>{{ fu.postoperative_days }}</td>
+                <td>
+                  <small>UDVA {{ fu.udva_snellen or '—' }}{% if fu.udva_logmar is not none %} ({{ '%.2f'|format(fu.udva_logmar) }}){% endif %}</small><br>
+                  <small>CDVA {{ fu.cdva_snellen or '—' }}{% if fu.cdva_logmar is not none %} ({{ '%.2f'|format(fu.cdva_logmar) }}){% endif %}</small>
+                </td>
+                <td>
+                  {{ '%.2f'|format(fu.sphere) }} / {{ '%.2f'|format(fu.cylinder) }}
+                  {% if fu.axis is not none %} × {{ '%.0f'|format(fu.axis) }}°{% endif %}
+                  <br><small>|C| {{ '%.2f'|format(fu.residual_astigmatism) }} · {{ orientation_labels.get(fu.astigmatism_orientation, fu.astigmatism_orientation) }}</small>
+                </td>
+                <td>{{ '%.2f'|format(fu.spherical_equivalent) }} D</td>
+                <td>
+                  <span title="EQ esférico">SEQ {{ fu.spherical_equivalent_stars }}★</span><br>
+                  <span title="Astigmatismo">Ast {{ fu.astigmatism_stars }}★</span><br>
+                  <strong>Global {{ '%.1f'|format(fu.overall_refractive_stars) }}★</strong>
+                </td>
+                <td class="text-nowrap">
+                  {% if not fu.is_voided %}
+                  <a class="btn btn-outline-secondary btn-sm" href="/surgeries/{{ surgery.id }}/follow-ups/{{ fu.id }}/edit">Editar</a>
+                  <form method="post" action="/surgeries/{{ surgery.id }}/follow-ups/{{ fu.id }}/void" class="d-inline"
+                        onsubmit="return confirm('¿Anular esta visita?');">
+                    <button class="btn btn-outline-danger btn-sm" type="submit">Anular</button>
+                  </form>
+                  {% endif %}
+                  {% if fu.revisions %}
+                  <details class="mt-1">
+                    <summary class="small">Historial</summary>
+                    <ul class="small mb-0 ps-3">
+                      {% for rev in fu.revisions[:5] %}
+                      <li>{{ rev.created_at }} · {{ rev.action }}{% if rev.changed_by %} · {{ rev.changed_by.full_name }}{% endif %}</li>
+                      {% endfor %}
+                    </ul>
+                  </details>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">Aún no hay visitas de seguimiento refractivo.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card border-secondary">
+      <div class="card-body">
+        <h2 class="h5">Seguimiento postoperatorio</h2>
+        <dl class="row">
+          <dt class="col-sm-4">Reintervención necesaria</dt>
+          <dd class="col-sm-8">
+            {% if surgery.reintervention_needed %}
+            <span class="badge text-bg-warning">Sí</span>
+            {% else %}
+            <span class="badge text-bg-secondary">No</span>
+            {% endif %}
+          </dd>
+          <dt class="col-sm-4">Nota del procedimiento</dt>
+          <dd class="col-sm-8">{{ surgery.reintervention_procedure_notes or '—' }}</dd>
+        </dl>
+
+        {% if can_manage_reintervention or user.role in ['admin', 'surgeon'] %}
+        <hr>
+        <h3 class="h6">Seguimiento de reintervención</h3>
+        <p class="text-muted small">Puede registrar si se realizó reintervención y la nota del procedimiento.</p>
+        <a class="btn btn-primary" href="/reinterventions/new?surgery_id={{ surgery.id }}">Registrar / actualizar reintervención</a>
+        {% if reinterventions %}
+        <ul class="mt-3 mb-0">
+          {% for fu in reinterventions if not fu.is_voided %}
+          <li>
+            {{ fu.status }} · {{ fu.reintervention_required }}
+            · <a href="/reinterventions/{{ fu.id }}/edit">Editar</a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

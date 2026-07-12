@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Cirugías · PhacoStats{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="h3 mb-0">Cirugías</h1>
+    {% if scoped %}
+    <p class="text-muted mb-0 small">Vista filtrada a sus cirugías</p>
+    {% else %}
+    <p class="text-muted mb-0 small">Vista institucional (todos los cirujanos)</p>
+    {% endif %}
+  </div>
+  <a class="btn btn-primary" href="/surgeries/new">Registrar</a>
+</div>
+<p class="text-muted small">Solo códigos anónimos. No registre datos identificables de pacientes.</p>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="get" action="/surgeries" class="row g-3 align-items-end" id="surgerySearchForm">
+      <div class="col-md-4">
+        <label class="form-label" for="q">Código de cirugía</label>
+        <input
+          type="search"
+          class="form-control"
+          id="q"
+          name="q"
+          value="{{ filter_q }}"
+          placeholder="Ej. CASE-001 o SYN-"
+          autocomplete="off"
+        >
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="complication">Complicación</label>
+        <select class="form-select" id="complication" name="complication">
+          <option value="all" {% if filter_complication == 'all' %}selected{% endif %}>Todas</option>
+          <option value="yes" {% if filter_complication == 'yes' %}selected{% endif %}>Con complicación</option>
+          <option value="no" {% if filter_complication == 'no' %}selected{% endif %}>Sin complicación</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="reintervention">Reintervención</label>
+        <select class="form-select" id="reintervention" name="reintervention">
+          <option value="all" {% if filter_reintervention == 'all' %}selected{% endif %}>Todas</option>
+          <option value="yes" {% if filter_reintervention == 'yes' %}selected{% endif %}>Con reintervención</option>
+          <option value="no" {% if filter_reintervention == 'no' %}selected{% endif %}>Sin reintervención</option>
+        </select>
+      </div>
+      <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-primary flex-grow-1">Buscar</button>
+        {% if filters_active %}
+        <a class="btn btn-outline-secondary" href="/surgeries" title="Limpiar filtros">Limpiar</a>
+        {% endif %}
+      </div>
+    </form>
+    <p class="text-muted small mb-0 mt-3">
+      {{ result_count }} resultado{% if result_count != 1 %}s{% endif %}
+      {% if filters_active %}con los filtros aplicados{% endif %}
+    </p>
+  </div>
+</div>
+
+<div class="table-responsive card">
+  <table class="table table-hover mb-0 align-middle">
+    <thead class="table-light">
+      <tr>
+        <th>Código</th>
+        <th>Fecha</th>
+        <th>Ojo</th>
+        <th>Cirujano</th>
+        <th>Complicación</th>
+        <th>Reintervención</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in surgeries %}
+      <tr>
+        <td><code>{{ s.case_code }}</code></td>
+        <td>{{ s.surgery_date }}</td>
+        <td>{{ s.eye }}</td>
+        <td>{{ s.surgeon.full_name }}</td>
+        <td>
+          {% if s.complication and s.complication.occurred %}
+          <span class="badge text-bg-danger">
+            {{ complication_labels.get(s.complication.complication_type, 'Sí') }}
+          </span>
+          {% else %}
+          <span class="badge text-bg-success">No</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if s.reintervention_needed %}
+          <span class="badge text-bg-warning">Sí</span>
+          {% else %}
+          <span class="badge text-bg-secondary">No</span>
+          {% endif %}
+        </td>
+        <td class="text-end">
+          <a class="btn btn-sm btn-outline-secondary" href="/surgeries/{{ s.id }}">Ver</a>
+          <a class="btn btn-sm btn-outline-primary" href="/surgeries/{{ s.id }}/edit">Editar</a>
+          {% if user.role in ['admin', 'surgeon'] %}
+          <a class="btn btn-sm btn-outline-primary" href="/reinterventions/new?surgery_id={{ s.id }}">Reintervención</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="text-center text-muted py-4">Sin registros{% if filters_active %} para estos filtros{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

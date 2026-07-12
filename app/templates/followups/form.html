@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}{% if follow_up %}Editar{% else %}Nueva{% endif %} visita · PhacoStats{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 mb-1">{% if follow_up %}Editar visita{% else %}Añadir seguimiento{% endif %}</h1>
+    <p class="text-muted mb-0"><code>{{ surgery.case_code }}</code> · cirugía {{ surgery.surgery_date }}</p>
+  </div>
+  <a class="btn btn-outline-secondary" href="/surgeries/{{ surgery.id }}">Volver</a>
+</div>
+
+<form method="post" class="card card-body shadow-sm" id="followUpForm">
+  <div class="row g-3">
+    <div class="col-md-4">
+      <label class="form-label" for="visit_date">Fecha de visita *</label>
+      <input class="form-control" type="date" id="visit_date" name="visit_date" required
+             value="{{ follow_up.visit_date if follow_up else '' }}">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label" for="visit_type">Tipo de visita *</label>
+      <select class="form-select" id="visit_type" name="visit_type" required>
+        {% for vt in visit_types %}
+        <option value="{{ vt.value }}"
+          {% if follow_up and follow_up.visit_type == vt.value %}selected
+          {% elif not follow_up and vt.value == 'month_1' %}selected{% endif %}>
+          {{ visit_labels[vt.value] }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Días postoperatorios</label>
+      <input class="form-control" id="postopDaysPreview" value="—" disabled>
+    </div>
+
+    <div class="col-md-6">
+      <label class="form-label" for="udva_snellen">UDVA (Snellen)</label>
+      <input class="form-control" id="udva_snellen" name="udva_snellen" placeholder="20/25"
+             value="{{ follow_up.udva_snellen if follow_up and follow_up.udva_snellen else '' }}">
+    </div>
+    <div class="col-md-6">
+      <label class="form-label" for="cdva_snellen">CDVA (Snellen)</label>
+      <input class="form-control" id="cdva_snellen" name="cdva_snellen" placeholder="20/20"
+             value="{{ follow_up.cdva_snellen if follow_up and follow_up.cdva_snellen else '' }}">
+    </div>
+
+    <div class="col-md-4">
+      <label class="form-label" for="sphere">Esfera (D) *</label>
+      <input class="form-control" type="number" step="0.25" id="sphere" name="sphere" required
+             value="{{ follow_up.sphere if follow_up else '0' }}">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label" for="cylinder">Cilindro negativo (D) *</label>
+      <input class="form-control" type="number" step="0.25" max="0" id="cylinder" name="cylinder" required
+             value="{{ follow_up.cylinder if follow_up else '0' }}"
+             title="Solo notación de cilindro negativo (≤ 0)">
+      <div class="form-text">Solo ≤ 0 (ej. −0.75). No se acepta cilindro positivo.</div>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label" for="axis">Eje (0–180)</label>
+      <input class="form-control" type="number" step="1" min="0" max="180" id="axis" name="axis"
+             value="{{ follow_up.axis if follow_up and follow_up.axis is not none else '' }}">
+    </div>
+  </div>
+
+  <div class="alert alert-info mt-3 mb-0" id="liveCalc">
+    <div class="row g-2">
+      <div class="col-md-3"><strong>SEQ:</strong> <span data-field="seq">—</span> D</div>
+      <div class="col-md-3"><strong>|Cyl|:</strong> <span data-field="cyl">—</span> D · firmado <span data-field="cylSigned">—</span></div>
+      <div class="col-md-3"><strong>Orientación:</strong> <span data-field="orient">—</span></div>
+      <div class="col-md-3"><strong>J0 / J45:</strong> <span data-field="j0">—</span> / <span data-field="j45">—</span></div>
+      <div class="col-md-12">
+        <strong>Estrellas:</strong>
+        SEQ <span data-field="seqStars">—</span> ·
+        Ast <span data-field="astigStars">—</span> ·
+        Global <span data-field="overallStars">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <label class="form-label" for="notes">Notas (sin datos identificables)</label>
+    <textarea class="form-control" id="notes" name="notes" rows="2">{{ follow_up.notes if follow_up and follow_up.notes else '' }}</textarea>
+  </div>
+
+  <div class="mt-3 d-flex gap-2">
+    <button class="btn btn-primary" type="submit">Guardar</button>
+    <a class="btn btn-outline-secondary" href="/surgeries/{{ surgery.id }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.PHACO_SURGERY_DATE = {{ surgery.surgery_date.isoformat()|tojson }};
+</script>
+<script src="/static/js/followup_form.js"></script>
+{% endblock %}

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Cirugías · PhacoStats{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="h3 mb-0">Cirugías</h1>
+    <p class="text-muted mb-0 small">Vista operativa de su institución. Complicación solo como Sí/No.</p>
+  </div>
+  <a class="btn btn-outline-primary" href="/surgeries/export.xlsx">Exportar</a>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="get" action="/surgeries" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label" for="q">Código</label>
+        <input type="search" class="form-control" id="q" name="q" value="{{ filter_q }}" placeholder="Ej. CASE-">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="date_from">Desde</label>
+        <input type="date" class="form-control" id="date_from" name="date_from" value="{{ filter_date_from }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="date_to">Hasta</label>
+        <input type="date" class="form-control" id="date_to" name="date_to" value="{{ filter_date_to }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="surgeon_id">Cirujano</label>
+        <select class="form-select" id="surgeon_id" name="surgeon_id">
+          <option value="">Todos</option>
+          {% for s in surgeons %}
+          <option value="{{ s.id }}" {% if filter_surgeon_id == s.id %}selected{% endif %}>{{ s.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="eye">Ojo</label>
+        <select class="form-select" id="eye" name="eye">
+          <option value="">Todos</option>
+          {% for e in eyes %}
+          <option value="{{ e.value }}" {% if filter_eye == e.value %}selected{% endif %}>{{ e.value }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="technique">Tipo de cirugía</label>
+        <input class="form-control" id="technique" name="technique" value="{{ filter_technique }}" placeholder="Phaco…">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="complication">Complicación</label>
+        <select class="form-select" id="complication" name="complication">
+          <option value="all" {% if filter_complication == 'all' %}selected{% endif %}>Todas</option>
+          <option value="yes" {% if filter_complication == 'yes' %}selected{% endif %}>Sí</option>
+          <option value="no" {% if filter_complication == 'no' %}selected{% endif %}>No</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="reintervention">Reintervención</label>
+        <select class="form-select" id="reintervention" name="reintervention">
+          <option value="all" {% if filter_reintervention == 'all' %}selected{% endif %}>Todas</option>
+          <option value="yes" {% if filter_reintervention == 'yes' %}selected{% endif %}>Sí</option>
+          <option value="no" {% if filter_reintervention == 'no' %}selected{% endif %}>No</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <div class="form-check mt-4">
+          <input class="form-check-input" type="checkbox" id="followup_pending" name="followup_pending" value="1"
+                 {% if filter_followup_pending %}checked{% endif %}>
+          <label class="form-check-label" for="followup_pending">Solo seguimiento pendiente</label>
+        </div>
+      </div>
+      <div class="col-md-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Buscar</button>
+        {% if filters_active %}<a class="btn btn-outline-secondary" href="/surgeries">Limpiar</a>{% endif %}
+      </div>
+    </form>
+    <p class="text-muted small mb-0 mt-3">{{ result_count }} resultado{% if result_count != 1 %}s{% endif %}</p>
+  </div>
+</div>
+
+<div class="table-responsive card">
+  <table class="table table-hover mb-0 align-middle">
+    <thead class="table-light">
+      <tr>
+        <th>Identificador</th>
+        <th>Fecha</th>
+        <th>Cirujano</th>
+        <th>Ojo</th>
+        <th>Tipo</th>
+        <th>Complicación</th>
+        <th>Reintervención</th>
+        <th>Fecha reint.</th>
+        <th>Seguimiento</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in surgeries %}
+      {% set active_list = s.reintervention_follow_ups | rejectattr('is_voided') | list %}
+      {% set first = active_list[0] if active_list else none %}
+      <tr>
+        <td><code>{{ s.case_code }}</code></td>
+        <td>{{ s.surgery_date }}</td>
+        <td>{{ s.surgeon.full_name }}</td>
+        <td>{{ s.eye }}</td>
+        <td>{{ s.technique }}</td>
+        <td>{% if s.complication and s.complication.occurred %}Sí{% else %}No{% endif %}</td>
+        <td>
+          {% if first %}
+            {% if first.reintervention_required == 'yes' %}Sí
+            {% elif first.reintervention_required == 'no' %}No necesaria
+            {% else %}Pendiente{% endif %}
+          {% else %}
+            {% if s.reintervention_needed %}Sí{% else %}No necesaria{% endif %}
+          {% endif %}
+        </td>
+        <td>{{ first.reintervention_date if first and first.reintervention_date else '—' }}</td>
+        <td>{{ ops_status_label(s) }}</td>
+        <td class="text-end text-nowrap">
+          <a class="btn btn-sm btn-outline-secondary" href="/surgeries/{{ s.id }}">Ver</a>
+          <a class="btn btn-sm btn-outline-primary" href="/reinterventions/new?surgery_id={{ s.id }}">Agregar seguimiento</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="10" class="text-center text-muted py-4">Sin registros{% if filters_active %} para estos filtros{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

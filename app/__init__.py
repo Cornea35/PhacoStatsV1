@@ -1,0 +1,1 @@
+"""PhacoStats application package."""

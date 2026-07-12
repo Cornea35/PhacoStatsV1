@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{{ surgery.case_code }} · PhacoStats{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="h3 mb-0"><code>{{ surgery.case_code }}</code></h1>
+    <p class="text-muted mb-0 small">Detalle administrativo mínimo</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="/surgeries">Volver</a>
+    <a class="btn btn-primary" href="/reinterventions/new?surgery_id={{ surgery.id }}">Agregar seguimiento de reintervención</a>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-sm-4">Identificador</dt><dd class="col-sm-8"><code>{{ surgery.case_code }}</code></dd>
+      <dt class="col-sm-4">Fecha</dt><dd class="col-sm-8">{{ surgery.surgery_date }}</dd>
+      <dt class="col-sm-4">Cirujano</dt><dd class="col-sm-8">{{ surgery.surgeon.full_name }}</dd>
+      <dt class="col-sm-4">Ojo</dt><dd class="col-sm-8">{{ surgery.eye }}</dd>
+      <dt class="col-sm-4">Tipo de cirugía</dt><dd class="col-sm-8">{{ surgery.technique }}</dd>
+      <dt class="col-sm-4">Hubo complicación</dt>
+      <dd class="col-sm-8">{% if surgery.complication and surgery.complication.occurred %}Sí{% else %}No{% endif %}</dd>
+      <dt class="col-sm-4">Seguimiento reintervención</dt>
+      <dd class="col-sm-8">{{ ops_status_label }}</dd>
+    </dl>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h2 class="h5">Seguimientos de reintervención</h2>
+    {% if reinterventions %}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Requerida</th>
+            <th>Tipo</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th>Notas</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for fu in reinterventions %}
+          <tr class="{% if fu.is_voided %}table-secondary{% endif %}">
+            <td>{{ fu.reintervention_required }}{% if fu.is_voided %} <span class="badge text-bg-secondary">Anulado</span>{% endif %}</td>
+            <td>{{ fu.reintervention_type }}</td>
+            <td>{{ fu.reintervention_date or '—' }}</td>
+            <td>{{ fu.status }}</td>
+            <td>{{ fu.notes or '—' }}</td>
+            <td class="text-end">
+              {% if not fu.is_voided %}
+              <a class="btn btn-sm btn-outline-primary" href="/reinterventions/{{ fu.id }}/edit">Editar</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted mb-0">Aún no hay seguimientos registrados.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

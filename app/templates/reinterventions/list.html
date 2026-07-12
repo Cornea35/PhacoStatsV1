@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} · PhacoStats{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">{{ page_title }}</h1>
+</div>
+<div class="table-responsive card">
+  <table class="table table-hover mb-0 align-middle">
+    <thead class="table-light">
+      <tr>
+        <th>Código</th>
+        <th>Cirujano</th>
+        <th>Requerida</th>
+        <th>Tipo</th>
+        <th>Fecha</th>
+        <th>Estado</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for fu in items %}
+      <tr>
+        <td><code>{{ fu.surgery.case_code }}</code></td>
+        <td>{{ fu.surgery.surgeon.full_name }}</td>
+        <td>{{ required_labels.get(fu.reintervention_required, fu.reintervention_required) }}</td>
+        <td>{{ type_labels.get(fu.reintervention_type, fu.reintervention_type) }}</td>
+        <td>{{ fu.reintervention_date or '—' }}</td>
+        <td>{{ status_labels.get(fu.status, fu.status) }}</td>
+        <td class="text-end">
+          <a class="btn btn-sm btn-outline-primary" href="/reinterventions/{{ fu.id }}/edit">Editar</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="text-center text-muted py-4">Sin registros</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

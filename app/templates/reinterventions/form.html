@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Seguimiento reintervención · PhacoStats{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">{% if follow_up %}Editar{% else %}Registrar{% endif %} seguimiento de reintervención</h1>
+{% if surgery %}
+<p class="text-muted">Cirugía <code>{{ surgery.case_code }}</code> · {{ surgery.surgery_date }} · {{ surgery.surgeon.full_name }}</p>
+{% endif %}
+
+<form method="post" class="card card-body row g-3" action="{% if follow_up %}/reinterventions/{{ follow_up.id }}/edit{% else %}/reinterventions/new{% endif %}">
+  {% if not follow_up %}
+  <input type="hidden" name="surgery_id" value="{{ surgery.id }}">
+  {% endif %}
+
+  <div class="col-md-4">
+    <label class="form-label" for="reintervention_required">Reintervención requerida</label>
+    <select class="form-select" id="reintervention_required" name="reintervention_required" required>
+      {% for opt in required_options %}
+      <option value="{{ opt.value }}"
+        {% if follow_up and follow_up.reintervention_required == opt.value %}selected
+        {% elif not follow_up and opt.value == 'pending' %}selected{% endif %}>
+        {{ required_labels[opt.value] }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label" for="status">Estado</label>
+    <select class="form-select" id="status" name="status" required>
+      {% for opt in status_options %}
+      <option value="{{ opt.value }}"
+        {% if follow_up and follow_up.status == opt.value %}selected
+        {% elif not follow_up and opt.value == 'pending' %}selected{% endif %}>
+        {{ status_labels[opt.value] }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label" for="reintervention_date">Fecha de reintervención</label>
+    <input type="date" class="form-control" id="reintervention_date" name="reintervention_date"
+           value="{{ follow_up.reintervention_date if follow_up and follow_up.reintervention_date else '' }}">
+    <div class="form-text">Obligatoria si el estado es Completada. No anterior a la cirugía.</div>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label" for="reintervention_type">Tipo general</label>
+    <select class="form-select" id="reintervention_type" name="reintervention_type">
+      {% for opt in type_options %}
+      <option value="{{ opt.value }}"
+        {% if follow_up and follow_up.reintervention_type == opt.value %}selected
+        {% elif not follow_up and opt.value == 'unspecified' %}selected{% endif %}>
+        {{ type_labels[opt.value] }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label" for="retina_related">Relacionada con retina</label>
+    <select class="form-select" id="retina_related" name="retina_related">
+      {% for opt in retina_options %}
+      <option value="{{ opt.value }}"
+        {% if follow_up and follow_up.retina_related == opt.value %}selected
+        {% elif not follow_up and opt.value == 'unknown' %}selected{% endif %}>
+        {{ retina_labels[opt.value] }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-12">
+    <label class="form-label" for="notes">Notas administrativas</label>
+    <textarea class="form-control" id="notes" name="notes" rows="3"
+              placeholder="Qué se realizó / programación (sin datos de paciente)">{{ follow_up.notes if follow_up else '' }}</textarea>
+  </div>
+  <div class="col-12 d-flex gap-2">
+    <button class="btn btn-primary" type="submit">Guardar</button>
+    <a class="btn btn-outline-secondary" href="{% if surgery %}/surgeries/{{ surgery.id }}{% else %}/reinterventions{% endif %}">Cancelar</a>
+  </div>
+</form>
+
+{% if follow_up and not follow_up.is_voided %}
+<form method="post" action="/reinterventions/{{ follow_up.id }}/void" class="card card-body mt-3 border-danger">
+  <h2 class="h6 text-danger">Anular seguimiento (sin borrado físico)</h2>
+  <label class="form-label" for="void_reason">Motivo</label>
+  <textarea class="form-control mb-2" id="void_reason" name="void_reason" rows="2" required></textarea>
+  <button class="btn btn-outline-danger" type="submit">Anular</button>
+</form>
+{% endif %}
+{% endblock %}

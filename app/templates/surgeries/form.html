@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}{% if surgery %}Editar{% else %}Nueva{% endif %} cirugía · PhacoStats{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">{% if surgery %}Editar cirugía{% else %}Registrar cirugía{% endif %}</h1>
+<p class="alert alert-warning py-2">Use únicamente códigos anónimos (p. ej. CASE-0007). No introduzca nombres ni historias clínicas reales.</p>
+
+<form method="post" class="card card-body shadow-sm" id="surgeryForm">
+  <div class="row g-3">
+    <div class="col-md-4">
+      <label class="form-label" for="case_code">Código de caso *</label>
+      <input class="form-control" id="case_code" name="case_code" required
+             value="{{ surgery.case_code if surgery else '' }}" placeholder="CASE-0007">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label" for="surgery_date">Fecha *</label>
+      <input class="form-control" type="date" id="surgery_date" name="surgery_date" required
+             value="{{ surgery.surgery_date if surgery else '' }}">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label" for="eye">Ojo *</label>
+      <select class="form-select" id="eye" name="eye" required>
+        {% for e in eyes %}
+        <option value="{{ e.value }}" {% if surgery and surgery.eye == e.value %}selected{% endif %}>{{ e.value }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label" for="technique">Técnica</label>
+      <input class="form-control" id="technique" name="technique"
+             value="{{ surgery.technique if surgery else 'Phacoemulsification' }}">
+    </div>
+    <div class="col-md-6">
+      <label class="form-label" for="iol_type">Tipo de LIO</label>
+      <select class="form-select" id="iol_type" name="iol_type">
+        <option value="">—</option>
+        {% for code, label in iol_types.items() %}
+        <option value="{{ code }}" {% if surgery and surgery.iol_type == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label" for="surgeon_id">Cirujano *</label>
+      {% if user.role == 'surgeon' %}
+      <input type="hidden" name="surgeon_id" value="{{ user.id }}">
+      <input class="form-control" value="{{ user.full_name }}" disabled>
+      {% else %}
+      <select class="form-select" id="surgeon_id" name="surgeon_id" required>
+        {% for s in surgeons %}
+        <option value="{{ s.id }}" {% if surgery and surgery.surgeon_id == s.id %}selected{% endif %}>{{ s.full_name }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+    </div>
+    <div class="col-12">
+      <label class="form-label" for="notes">Notas (sin datos identificables)</label>
+      <textarea class="form-control" id="notes" name="notes" rows="2">{{ surgery.notes if surgery and surgery.notes else '' }}</textarea>
+    </div>
+  </div>
+
+  <hr>
+  <h2 class="h5">Factores de riesgo preoperatorios</h2>
+  <div class="row">
+    {% for code, label in risk_catalog.items() %}
+    <div class="col-md-6">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="risk_codes" value="{{ code }}" id="risk_{{ code }}"
+               {% if code in selected_risks %}checked{% endif %}>
+        <label class="form-check-label" for="risk_{{ code }}">{{ label }}</label>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <hr>
+  <h2 class="h5">Complicaciones</h2>
+  {% set comp = surgery.complication if surgery else None %}
+  <div class="form-check form-switch mb-3">
+    <input class="form-check-input" type="checkbox" role="switch" id="complication_occurred" name="complication_occurred"
+           {% if comp and comp.occurred %}checked{% endif %}>
+    <label class="form-check-label" for="complication_occurred">Hubo complicación</label>
+  </div>
+
+  <div id="complicationDetails" class="border rounded p-3 bg-white {% if not (comp and comp.occurred) %}d-none{% endif %}">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label" for="complication_type">Qué complicación</label>
+        <select class="form-select" id="complication_type" name="complication_type">
+          <option value="">—</option>
+          {% for ct in complication_types %}
+          <option value="{{ ct.value }}"
+            {% if comp and comp.complication_type == ct.value %}selected{% endif %}>
+            {{ complication_labels[ct.value] }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="surgical_stage">Etapa quirúrgica</label>
+        <select class="form-select" id="surgical_stage" name="surgical_stage">
+          <option value="">—</option>
+          {% for st in stages %}
+          <option value="{{ st.value }}"
+            {% if comp and comp.surgical_stage == st.value %}selected{% endif %}>
+            {{ stage_labels[st.value] }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="iol_position">Posición final del LIO</label>
+        <select class="form-select" id="iol_position" name="iol_position">
+          <option value="">—</option>
+          {% for p in iol_positions %}
+          <option value="{{ p.value }}"
+            {% if comp and comp.iol_position == p.value %}selected{% endif %}>
+            {{ iol_labels[p.value] }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="vitreous_loss">Pérdida vítrea</label>
+        <select class="form-select" id="vitreous_loss" name="vitreous_loss">
+          <option value="">—</option>
+          <option value="true" {% if comp and comp.vitreous_loss is sameas true %}selected{% endif %}>Sí</option>
+          <option value="false" {% if comp and comp.vitreous_loss is sameas false %}selected{% endif %}>No</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="anterior_vitrectomy">Vitrectomía anterior</label>
+        <select class="form-select" id="anterior_vitrectomy" name="anterior_vitrectomy">
+          <option value="">—</option>
+          <option value="true" {% if comp and comp.anterior_vitrectomy is sameas true %}selected{% endif %}>Sí</option>
+          <option value="false" {% if comp and comp.anterior_vitrectomy is sameas false %}selected{% endif %}>No</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="fragments_to_posterior">Fragmentos a SP</label>
+        <select class="form-select" id="fragments_to_posterior" name="fragments_to_posterior">
+          <option value="">—</option>
+          <option value="true" {% if comp and comp.fragments_to_posterior is sameas true %}selected{% endif %}>Sí</option>
+          <option value="false" {% if comp and comp.fragments_to_posterior is sameas false %}selected{% endif %}>No</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="retina_intervention">Intervención retina</label>
+        <select class="form-select" id="retina_intervention" name="retina_intervention">
+          <option value="">—</option>
+          <option value="true" {% if comp and comp.retina_intervention is sameas true %}selected{% endif %}>Sí</option>
+          <option value="false" {% if comp and comp.retina_intervention is sameas false %}selected{% endif %}>No</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="capsular_tension_ring">Anillo de tensión capsular</label>
+        <select class="form-select" id="capsular_tension_ring" name="capsular_tension_ring">
+          <option value="">—</option>
+          <option value="true" {% if comp and comp.capsular_tension_ring is sameas true %}selected{% endif %}>Sí</option>
+          <option value="false" {% if comp and comp.capsular_tension_ring is sameas false %}selected{% endif %}>No</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="segment_ring_suture">Sutura de segmento/anillo</label>
+        <select class="form-select" id="segment_ring_suture" name="segment_ring_suture">
+          <option value="">—</option>
+          <option value="true" {% if comp and comp.segment_ring_suture is sameas true %}selected{% endif %}>Sí</option>
+          <option value="false" {% if comp and comp.segment_ring_suture is sameas false %}selected{% endif %}>No</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="f2_assistant_help">Ayuda de F2 o adscrito</label>
+        <select class="form-select" id="f2_assistant_help" name="f2_assistant_help">
+          <option value="">—</option>
+          <option value="true" {% if comp and comp.f2_assistant_help is sameas true %}selected{% endif %}>Sí</option>
+          <option value="false" {% if comp and comp.f2_assistant_help is sameas false %}selected{% endif %}>No</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-4 d-flex gap-2">
+    <button class="btn btn-primary" type="submit">Guardar</button>
+    <a class="btn btn-outline-secondary" href="/surgeries">Cancelar</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/surgery_form.js"></script>
+{% endblock %}
