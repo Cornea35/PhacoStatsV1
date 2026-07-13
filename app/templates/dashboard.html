@@ -4,7 +4,9 @@
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <div>
     <h1 class="h3 mb-0">Dashboard</h1>
-    {% if scoped %}
+    {% if is_admin and filter_surgeon_name %}
+    <p class="text-muted mb-0 small">Vista filtrada: {{ filter_surgeon_name }}</p>
+    {% elif scoped and not is_admin %}
     <p class="text-muted mb-0 small">Vista filtrada a sus cirugías</p>
     {% else %}
     <p class="text-muted mb-0 small">Vista institucional (todos los cirujanos)</p>
@@ -22,18 +24,30 @@
 <div class="card mb-4">
   <div class="card-body">
     <h2 class="h6 mb-3">Estadísticas por rango de tiempo</h2>
+    {% set surgeon_qs = ('&surgeon_id=' ~ filter_surgeon_id) if filter_surgeon_id else '' %}
     <form id="rangeForm" method="get" action="/dashboard" class="row g-3 align-items-end">
       <div class="col-12">
         <div class="btn-group flex-wrap" role="group" aria-label="Periodo rápido">
           <a class="btn btn-sm {% if period == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}"
-             href="/dashboard?period=all">Totales</a>
+             href="/dashboard?period=all{{ surgeon_qs }}">Totales</a>
           <a class="btn btn-sm {% if period == 'month' and month_value == current_month %}btn-primary{% else %}btn-outline-primary{% endif %}"
-             href="/dashboard?period=month&month={{ current_month }}">Este mes</a>
+             href="/dashboard?period=month&month={{ current_month }}{{ surgeon_qs }}">Este mes</a>
           <a class="btn btn-sm {% if period == 'month' and month_value == prev_month %}btn-primary{% else %}btn-outline-primary{% endif %}"
-             href="/dashboard?period=month&month={{ prev_month }}">Mes anterior</a>
+             href="/dashboard?period=month&month={{ prev_month }}{{ surgeon_qs }}">Mes anterior</a>
         </div>
       </div>
 
+      {% if is_admin %}
+      <div class="col-md-4">
+        <label class="form-label" for="surgeon_id">Cirujano</label>
+        <select class="form-select" id="surgeon_id" name="surgeon_id">
+          <option value="">Todos</option>
+          {% for s in surgeons %}
+          <option value="{{ s.id }}" {% if filter_surgeon_id == s.id %}selected{% endif %}>{{ s.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
       <div class="col-md-4">
         <label class="form-label" for="period">Modo</label>
         <select class="form-select" id="period" name="period">
@@ -153,6 +167,7 @@
 (() => {
   const form = document.getElementById("rangeForm");
   const period = document.getElementById("period");
+  const surgeon = document.getElementById("surgeon_id");
   const monthField = document.getElementById("monthField");
   const fromField = document.getElementById("fromField");
   const toField = document.getElementById("toField");
@@ -173,6 +188,9 @@
     syncFields();
     form.requestSubmit ? form.requestSubmit() : form.submit();
   };
+  if (surgeon) {
+    surgeon.addEventListener("change", submitNow);
+  }
   period.addEventListener("change", () => {
     syncFields();
     if (period.value === "all") return submitNow();

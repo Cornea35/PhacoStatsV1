@@ -154,10 +154,63 @@ def test_dashboard_page(client: TestClient):
     assert '"risks"' in response.text
     assert "Totales" in response.text
     assert "Este mes" in response.text
+    assert 'id="surgeon_id"' in response.text
+    assert "Vista institucional (todos los cirujanos)" in response.text
 
     month_page = client.get("/dashboard?period=month&month=2026-03")
     assert month_page.status_code == 200
     assert "Marzo 2026" in month_page.text
+
+
+def test_admin_dashboard_surgeon_filter(
+    client: TestClient,
+    db_session: Session,
+    seed_users: dict[str, User],
+):
+    db_session.add_all(
+        [
+            Surgery(
+                case_code="CASE-F1",
+                surgery_date=date(2026, 5, 1),
+                eye="OD",
+                technique="Phacoemulsification",
+                surgeon_id=seed_users["surgeon"].id,
+                created_by_id=seed_users["admin"].id,
+                complication=ComplicationEvent(occurred=False),
+            ),
+            Surgery(
+                case_code="CASE-F2",
+                surgery_date=date(2026, 5, 2),
+                eye="OS",
+                technique="Phacoemulsification",
+                surgeon_id=seed_users["surgeon2"].id,
+                created_by_id=seed_users["admin"].id,
+                complication=ComplicationEvent(occurred=False),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    login(client, "admin", "admin123")
+    filtered = client.get(f"/dashboard?surgeon_id={seed_users['surgeon'].id}")
+    assert filtered.status_code == 200
+    assert "Vista filtrada: Surgeon Test" in filtered.text
+    assert 'selected">Surgeon Test</option>' in filtered.text or (
+        f'value="{seed_users["surgeon"].id}"' in filtered.text
+        and "selected" in filtered.text
+    )
+    assert '<div class="kpi-value">1</div>' in filtered.text
+
+    all_again = client.get("/dashboard?surgeon_id=")
+    assert all_again.status_code == 200
+    assert "Vista institucional (todos los cirujanos)" in all_again.text
+    assert '<div class="kpi-value">2</div>' in all_again.text
+
+    login(client, "surgeon", "surgeon123")
+    surgeon_dash = client.get("/dashboard")
+    assert surgeon_dash.status_code == 200
+    assert 'id="surgeon_id"' not in surgeon_dash.text
+    assert "Vista filtrada a sus cirugías" in surgeon_dash.text
 
 
 def _seed_search_cases(db_session: Session, seed_users: dict[str, User]) -> None:

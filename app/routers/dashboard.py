@@ -17,6 +17,7 @@ from app.permissions import institution_scope, is_coordinator
 from app.services.dashboard import compute_dashboard
 from app.services.date_range import Period, current_and_previous_month, resolve_date_range
 from app.services.ops_dashboard import compute_ops_dashboard
+from app.services.refractive import list_active_surgeons
 
 router = APIRouter(tags=["dashboard"])
 templates = Jinja2Templates(directory="app/templates")
@@ -25,6 +26,15 @@ StaffUser = Annotated[
     User,
     Depends(require_roles(UserRole.SURGEON, UserRole.COORDINATOR, UserRole.ADMIN)),
 ]
+
+
+def _optional_int(value: str | None) -> int | None:
+    if value is None or not str(value).strip():
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -37,7 +47,9 @@ def dashboard(
     month: Annotated[str | None, Query()] = None,
     date_from: Annotated[date | None, Query()] = None,
     date_to: Annotated[date | None, Query()] = None,
+    surgeon_id: Annotated[str | None, Query()] = None,
 ):
+    selected_surgeon_id = _optional_int(surgeon_id)
     resolved_from, resolved_to, period, month_value, range_label = resolve_date_range(
         period=period,
         month=month,
@@ -82,10 +94,27 @@ def dashboard(
             },
         )
 
-    surgeon_id = current.id if current.role == UserRole.SURGEON.value else None
+    is_admin = current.role == UserRole.ADMIN.value
+    surgeons = list_active_surgeons(db) if is_admin else []
+    filter_surgeon_id: int | None = None
+    filter_surgeon_name: str | None = None
+
+    if current.role == UserRole.SURGEON.value:
+        scoped_surgeon_id = current.id
+    elif is_admin and selected_surgeon_id is not None:
+        match = next((s for s in surgeons if s.id == selected_surgeon_id), None)
+        if match is not None:
+            scoped_surgeon_id = match.id
+            filter_surgeon_id = match.id
+            filter_surgeon_name = match.full_name
+        else:
+            scoped_surgeon_id = None
+    else:
+        scoped_surgeon_id = None
+
     stats = compute_dashboard(
         db,
-        surgeon_id=surgeon_id,
+        surgeon_id=scoped_surgeon_id,
         date_from=resolved_from,
         date_to=resolved_to,
     )
@@ -122,8 +151,11 @@ def dashboard(
             "stats": stats,
             "chart_json": json.dumps(chart_payload),
             "flashes": pop_flashes(request),
-            "scoped": surgeon_id is not None,
-            "is_admin": current.role == UserRole.ADMIN.value,
+            "scoped": scoped_surgeon_id is not None,
+            "is_admin": is_admin,
+            "surgeons": surgeons,
+            "filter_surgeon_id": filter_surgeon_id,
+            "filter_surgeon_name": filter_surgeon_name,
             **range_ctx,
         },
     )
