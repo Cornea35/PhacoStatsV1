@@ -84,7 +84,7 @@
     <label class="form-check-label" for="complication_occurred">Hubo complicación</label>
   </div>
 
-  <div id="complicationDetails" class="border rounded p-3 bg-white {% if not (comp and comp.occurred) %}d-none{% endif %}">
+  <div id="complicationDetails" class="border rounded p-3 complication-panel {% if not (comp and comp.occurred) %}d-none{% endif %}">
     <div class="row g-3">
       <div class="col-md-6">
         <label class="form-label" for="complication_type">Qué complicación</label>

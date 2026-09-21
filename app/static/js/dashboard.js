@@ -2,16 +2,16 @@
   const data = window.PHACO_CHARTS;
   if (!data || typeof Chart === "undefined") return;
 
-  const ink = "#5b6b7c";
-  const grid = "rgba(11, 94, 168, 0.08)";
-  const blue = "#4aa3e7";
-  const blueSoft = "rgba(74, 163, 231, 0.18)";
-  const blueDeep = "#0b5ea8";
-  const bluePale = "#cfe8f8";
-  const blueMid = "#7eb8e8";
-  const slate = "#9aa8b5";
+  const ink = "#9ab0c8";
+  const grid = "rgba(148, 175, 210, 0.12)";
+  const blue = "#4ea1e0";
+  const blueSoft = "rgba(78, 161, 224, 0.22)";
+  const blueDeep = "#7ec0f0";
+  const bluePale = "#2d5a80";
+  const blueMid = "#5a9fd4";
+  const slate = "#7a8fa8";
 
-  const palette = [blueDeep, blue, blueMid, bluePale, slate, "#e8eef3"];
+  const palette = [blueDeep, blue, blueMid, bluePale, slate, "#3d5168"];
 
   Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
   Chart.defaults.font.size = 11;
@@ -20,10 +20,10 @@
   Chart.defaults.plugins.legend.labels.boxHeight = 10;
   Chart.defaults.plugins.legend.labels.usePointStyle = true;
   Chart.defaults.plugins.legend.labels.pointStyle = "circle";
-  Chart.defaults.plugins.tooltip.backgroundColor = "rgba(255,255,255,0.96)";
-  Chart.defaults.plugins.tooltip.titleColor = blueDeep;
+  Chart.defaults.plugins.tooltip.backgroundColor = "rgba(18, 26, 43, 0.96)";
+  Chart.defaults.plugins.tooltip.titleColor = "#e8eef5";
   Chart.defaults.plugins.tooltip.bodyColor = ink;
-  Chart.defaults.plugins.tooltip.borderColor = "rgba(11, 94, 168, 0.15)";
+  Chart.defaults.plugins.tooltip.borderColor = "rgba(148, 175, 210, 0.2)";
   Chart.defaults.plugins.tooltip.borderWidth = 1;
   Chart.defaults.plugins.tooltip.padding = 10;
   Chart.defaults.plugins.tooltip.displayColors = false;

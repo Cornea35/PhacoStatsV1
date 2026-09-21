@@ -2,6 +2,15 @@
   const data = window.PHACO_REFRACTIVE;
   if (!data) return;
 
+  if (typeof Chart !== "undefined") {
+    Chart.defaults.color = "#9ab0c8";
+    Chart.defaults.plugins.tooltip.backgroundColor = "rgba(18, 26, 43, 0.96)";
+    Chart.defaults.plugins.tooltip.titleColor = "#e8eef5";
+    Chart.defaults.plugins.tooltip.bodyColor = "#9ab0c8";
+    Chart.defaults.plugins.tooltip.borderColor = "rgba(148, 175, 210, 0.2)";
+    Chart.defaults.plugins.tooltip.borderWidth = 1;
+  }
+
   const starColors = {
     5: "#2a9d8f",
     4: "#8fbc5a",
@@ -85,8 +94,8 @@
   ctx.arc(cx, cy, maxR, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = "rgba(11, 94, 168, 0.2)";
-  ctx.fillStyle = "#5b6b7c";
+  ctx.strokeStyle = "rgba(148, 175, 210, 0.25)";
+  ctx.fillStyle = "#9ab0c8";
   ctx.font = "11px Segoe UI, sans-serif";
   ctx.textAlign = "center";
   rings.forEach((d) => {
@@ -102,9 +111,9 @@
   ctx.lineTo(cx + maxR, cy);
   ctx.moveTo(cx, cy - maxR);
   ctx.lineTo(cx, cy + maxR);
-  ctx.strokeStyle = "rgba(11, 94, 168, 0.35)";
+  ctx.strokeStyle = "rgba(148, 175, 210, 0.35)";
   ctx.stroke();
-  ctx.fillStyle = "#0b5ea8";
+  ctx.fillStyle = "#7ec0f0";
   ctx.fillText("0° WTR", cx + maxR + 22, cy + 4);
   ctx.fillText("90° ATR", cx, cy - maxR - 8);
   ctx.fillText("180° WTR", cx - maxR - 28, cy + 4);
@@ -127,13 +136,13 @@
   const mv = data.mean_vector || {};
   if (mv.x != null && mv.y != null) {
     const [mx, my] = toXY(mv.x, mv.y);
-    ctx.strokeStyle = "#084a86";
+    ctx.strokeStyle = "#7ec0f0";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.lineTo(mx, my);
     ctx.stroke();
-    ctx.fillStyle = "#084a86";
+    ctx.fillStyle = "#7ec0f0";
     ctx.beginPath();
     ctx.arc(mx, my, 5, 0, Math.PI * 2);
     ctx.fill();

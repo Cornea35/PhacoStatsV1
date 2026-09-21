@@ -135,7 +135,7 @@
         </div>
         <div class="col-lg-4">
           <div class="table-responsive">
-            <table class="table table-sm mb-0 bg-white rounded">
+            <table class="table table-sm mb-0 rounded risk-table">
               <thead>
                 <tr><th>Factor</th><th class="text-end">Casos</th><th class="text-end">%</th></tr>
               </thead>
@@ -162,7 +162,7 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>window.PHACO_CHARTS = {{ chart_json | safe }};</script>
-<script src="/static/js/dashboard.js?v=risk2"></script>
+<script src="/static/js/dashboard.js?v=dark1"></script>
 <script>
 (() => {
   const form = document.getElementById("rangeForm");

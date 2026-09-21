@@ -2,15 +2,20 @@
   const data = window.PHACO_ADMIN_CHARTS;
   if (!data || typeof Chart === "undefined") return;
 
-  const ink = "#5b6b7c";
-  const blue = "#4aa3e7";
-  const blueDeep = "#0b5ea8";
-  const bluePale = "#cfe8f8";
-  const grid = "rgba(11, 94, 168, 0.08)";
+  const ink = "#9ab0c8";
+  const blue = "#4ea1e0";
+  const blueDeep = "#7ec0f0";
+  const bluePale = "#2d5a80";
+  const grid = "rgba(148, 175, 210, 0.12)";
 
   Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
   Chart.defaults.font.size = 11;
   Chart.defaults.color = ink;
+  Chart.defaults.plugins.tooltip.backgroundColor = "rgba(18, 26, 43, 0.96)";
+  Chart.defaults.plugins.tooltip.titleColor = "#e8eef5";
+  Chart.defaults.plugins.tooltip.bodyColor = ink;
+  Chart.defaults.plugins.tooltip.borderColor = "rgba(148, 175, 210, 0.2)";
+  Chart.defaults.plugins.tooltip.borderWidth = 1;
 
   const scaleMinimal = {
     beginAtZero: true,
