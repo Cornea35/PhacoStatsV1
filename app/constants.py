@@ -4,9 +4,13 @@ from enum import Enum
 
 
 class UserRole(str, Enum):
+    GENERAL_ADMIN = "general_admin"
+    CENTER_ADMIN = "center_admin"
     SURGEON = "surgeon"
+    SUPERVISOR = "supervisor"
     COORDINATOR = "coordinator"
-    ADMIN = "admin"
+    # Legacy alias kept for older DBs / tests during migration window
+    ADMIN = "general_admin"
 
 
 class EyeSide(str, Enum):
@@ -77,20 +81,57 @@ IOL_TYPE_OPTIONS: dict[str, str] = {
 
 
 DEFAULT_INSTITUTION_CODE = "CODET"
+CENTER_CODE_UANL = "HU_UANL"
+
+TRAINING_LEVEL_OPTIONS: dict[str, str] = {
+    "r1": "R1",
+    "r2": "R2",
+    "r3": "R3",
+    "r4_plus": "R4 o superior",
+    "fellow": "Fellow",
+    "adscrito": "Adscrito",
+    "na": "No aplica",
+}
+
+ACCOUNT_STATUS = {
+    "pending": "Pendiente",
+    "active": "Activa",
+    "rejected": "Rechazada",
+    "suspended": "Suspendida",
+}
 
 
 RISK_FACTOR_CATALOG: dict[str, str] = {
     "small_pupil": "Pupila pequeña",
+    "white_cataract": "Catarata blanca",
+    "dense_cataract": "Catarata densa / núcleo duro",
     "pseudoexfoliation": "Pseudoexfoliación",
-    "dense_cataract": "Catarata densa / brunescente",
+    "weak_zonules": "Zonulopatía / zónulas débiles",
+    "subluxation": "Subluxación",
+    "ifis": "IFIS",
+    "trauma_history": "Trauma",
     "previous_vitrectomy": "Vitrectomía previa",
     "shallow_ac": "Cámara anterior estrecha",
-    "weak_zonules": "Zónulas débiles / dialisis",
+    "poor_visualization": "Mala visualización",
+    "combined_surgery": "Cirugía combinada",
     "posterior_polar": "Catarata polar posterior",
     "high_myopia": "Miopía alta",
-    "trauma_history": "Antecedente de trauma",
     "other": "Otro",
 }
+
+# Clinically motivated interaction pairs for Surgical Risk Profile MVP
+RISK_INTERACTION_PAIRS: tuple[tuple[str, str], ...] = (
+    ("small_pupil", "dense_cataract"),
+    ("pseudoexfoliation", "weak_zonules"),
+    ("white_cataract", "poor_visualization"),
+    ("previous_vitrectomy", "subluxation"),
+)
+
+# Configurable sufficiency thresholds (Surgical Risk Profile)
+RISK_MIN_CASES = 20
+RISK_MIN_EVENTS = 5
+RISK_MIN_COMBO_CASES = 8
+RISK_CATEGORY_THRESHOLDS = (0.03, 0.06)  # <3% bajo, <6% intermedio, else elevado
 
 
 COMPLICATION_TYPE_LABELS: dict[str, str] = {
@@ -124,10 +165,19 @@ IOL_POSITION_LABELS: dict[str, str] = {
 
 
 ROLE_LABELS: dict[str, str] = {
+    UserRole.GENERAL_ADMIN.value: "Administrador general",
+    UserRole.CENTER_ADMIN.value: "Administrador de centro",
     UserRole.SURGEON.value: "Cirujano",
+    UserRole.SUPERVISOR.value: "Supervisor",
     UserRole.COORDINATOR.value: "Coordinador",
-    UserRole.ADMIN.value: "Administrador",
 }
+
+# Roles a center_admin may assign (never center_admin / general_admin)
+ASSIGNABLE_CENTER_ROLES: tuple[str, ...] = (
+    UserRole.SURGEON.value,
+    UserRole.SUPERVISOR.value,
+    UserRole.COORDINATOR.value,
+)
 
 
 class ReinterventionRequired(str, Enum):

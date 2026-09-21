@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Surgical Risk Profile · PhacoStats{% endblock %}
+{% block content %}
+<div class="mb-3">
+  <h1 class="h3 mb-1">Surgical Risk Profile</h1>
+  <p class="text-muted mb-0">Personalized case-complexity and complication analysis</p>
+  <p class="small text-muted">Uso educativo / mejora de calidad. No es una herramienta de decisión clínica autónoma ni un ranking punitivo.</p>
+</div>
+
+{% if profile.is_preliminary %}
+<div class="alert alert-warning">Análisis preliminar: datos insuficientes para un modelo predictivo estable. Se muestran estadísticas descriptivas.</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3"><div class="kpi-tile h-100"><div class="kpi-label">Casos</div><div class="kpi-value">{{ profile.n_cases }}</div></div></div>
+  <div class="col-md-3"><div class="kpi-tile h-100"><div class="kpi-label">Complicaciones</div><div class="kpi-value">{{ profile.n_events }}</div></div></div>
+  <div class="col-md-3"><div class="kpi-tile h-100"><div class="kpi-label">Observado</div><div class="kpi-value">{% if payload.observed_pct is not none %}{{ payload.observed_pct }}%{% else %}—{% endif %}</div></div></div>
+  <div class="col-md-3"><div class="kpi-tile h-100"><div class="kpi-label">Esperado (complejidad)</div><div class="kpi-value">{% if payload.expected_pct is not none %}{{ payload.expected_pct }}%{% else %}—{% endif %}</div></div></div>
+</div>
+
+<div class="card mb-4"><div class="card-body">
+  <p class="mb-1"><strong>Índice observado/esperado:</strong>
+    {% if payload.oe_ratio is not none %}{{ payload.oe_ratio }}{% else %}—{% endif %}
+    {% if payload.oe_ci %} (IC ≈ {{ payload.oe_ci[0] }}–{{ payload.oe_ci[1] }}){% endif %}
+  </p>
+  <p class="mb-1"><strong>Promedio del centro:</strong> {% if payload.center_avg_pct is not none %}{{ payload.center_avg_pct }}%{% else %}—{% endif %}</p>
+  <p class="mb-0 small text-muted">Modelo {{ profile.model_version }} · Periodo: {{ profile.period_label }} · {{ profile.surgeon_name }}</p>
+</div></div>
+
+<div class="table-responsive card mb-4">
+  <table class="table table-sm mb-0">
+    <thead><tr>
+      <th>Factor / combinación</th><th class="text-end">Casos</th><th class="text-end">Eventos</th>
+      <th class="text-end">Observado</th><th class="text-end">Ajustado</th><th>Estado</th>
+    </tr></thead>
+    <tbody>
+    {% for row in payload.combinations + payload.top_factors[:8] %}
+      <tr>
+        <td>{{ row.label }}</td>
+        <td class="text-end">{{ row.n_cases }}</td>
+        <td class="text-end">{{ row.n_events }}</td>
+        <td class="text-end">{% if row.observed_pct is not none %}{{ row.observed_pct }}%{% else %}—{% endif %}</td>
+        <td class="text-end">{% if row.adjusted_pct is not none %}{{ row.adjusted_pct }}%{% else %}—{% endif %}</td>
+        <td>{% if row.sufficient %}OK{% else %}Datos insuficientes para estimar el riesgo de esta combinación.{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="text-muted">Sin datos en el periodo.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if profile.recommendations %}
+<div class="card mb-4"><div class="card-body">
+  <h2 class="h6">Recomendaciones educativas</h2>
+  <ul class="mb-0">{% for r in profile.recommendations %}<li>{{ r }}</li>{% endfor %}</ul>
+</div></div>
+{% endif %}
+
+<div class="small text-muted">
+  {% for n in profile.notes %}<div>{{ n }}</div>{% endfor %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>window.PHACO_RISK = {{ payload_json | safe }};</script>
+{% endblock %}

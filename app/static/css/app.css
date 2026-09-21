@@ -1,6 +1,42 @@
+.brand-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 96px;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--brand-primary, var(--codet-blue));
+  color: var(--brand-on-primary, #fff);
+  font-weight: 600;
+  text-align: center;
+}
+
+.brand-placeholder-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 0.35rem;
+  background: #fff;
+  color: var(--brand-primary, var(--codet-blue));
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.brand-phaco {
+  letter-spacing: 0.02em;
+  color: var(--brand-primary, var(--codet-blue));
+}
+
 :root {
   --codet-blue: #0b5ea8;
   --codet-blue-dark: #084a86;
+  --brand-primary: var(--codet-blue);
+  --brand-secondary: var(--codet-blue-dark);
+  --brand-accent: #c9a227;
+  --brand-text: #1a1a1a;
+  --brand-on-primary: #ffffff;
 }
 
 body {

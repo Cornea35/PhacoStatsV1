@@ -27,6 +27,7 @@ class Surgery(Base):
         default=DEFAULT_INSTITUTION_CODE,
         index=True,
     )
+    center_id: Mapped[Optional[int]] = mapped_column(ForeignKey("centers.id"), nullable=True, index=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # Post-operative follow-up (admin-managed)
     reintervention_needed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)

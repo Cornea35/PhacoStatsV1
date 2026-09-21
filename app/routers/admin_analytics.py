@@ -22,7 +22,10 @@ from app.statistics.export import build_analytics_workbook
 router = APIRouter(prefix="/admin/analytics", tags=["advanced-analytics"])
 templates = Jinja2Templates(directory="app/templates")
 
-AdminDep = Annotated[User, Depends(require_roles(UserRole.ADMIN))]
+AdminDep = Annotated[
+    User,
+    Depends(require_roles(UserRole.GENERAL_ADMIN, UserRole.CENTER_ADMIN)),
+]
 
 
 def _bundle(

@@ -24,7 +24,15 @@ templates = Jinja2Templates(directory="app/templates")
 
 StaffUser = Annotated[
     User,
-    Depends(require_roles(UserRole.SURGEON, UserRole.COORDINATOR, UserRole.ADMIN)),
+    Depends(
+        require_roles(
+            UserRole.SURGEON,
+            UserRole.COORDINATOR,
+            UserRole.GENERAL_ADMIN,
+            UserRole.CENTER_ADMIN,
+            UserRole.SUPERVISOR,
+        )
+    ),
 ]
 
 
@@ -94,7 +102,10 @@ def dashboard(
             },
         )
 
-    is_admin = current.role == UserRole.ADMIN.value
+    is_admin = current.role in {
+        UserRole.GENERAL_ADMIN.value,
+        UserRole.CENTER_ADMIN.value,
+    }
     surgeons = list_active_surgeons(db) if is_admin else []
     filter_surgeon_id: int | None = None
     filter_surgeon_name: str | None = None

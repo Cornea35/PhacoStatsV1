@@ -1,0 +1,20 @@
+{% extends "base_public.html" %}
+{% block title %}Nueva contraseña · PhacoStats{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-md-5">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h4 mb-3">Definir nueva contraseña</h1>
+        <form method="post" action="/recover/{{ token }}">
+          <div class="mb-3">
+            <label class="form-label" for="password">Nueva contraseña</label>
+            <input class="form-control" type="password" id="password" name="password" required minlength="6">
+          </div>
+          <button class="btn btn-codet w-100" type="submit">Guardar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

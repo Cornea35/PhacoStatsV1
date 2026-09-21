@@ -31,7 +31,14 @@ templates = Jinja2Templates(directory="app/templates")
 
 StaffUser = Annotated[
     User,
-    Depends(require_roles(UserRole.SURGEON, UserRole.ADMIN)),
+    Depends(
+        require_roles(
+            UserRole.SURGEON,
+            UserRole.GENERAL_ADMIN,
+            UserRole.CENTER_ADMIN,
+            UserRole.SUPERVISOR,
+        )
+    ),
 ]
 
 

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Bitácora · PhacoStats{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Bitácora de auditoría</h1>
+<div class="table-responsive card">
+  <table class="table table-sm mb-0">
+    <thead><tr><th>Fecha</th><th>Acción</th><th>Entidad</th><th>ID</th><th>Centro</th><th>Actor</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td>{{ r.created_at }}</td>
+        <td><code>{{ r.action }}</code></td>
+        <td>{{ r.entity_type }}</td>
+        <td>{{ r.entity_id or '—' }}</td>
+        <td>{{ r.center_id or '—' }}</td>
+        <td>{{ r.actor_user_id or '—' }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="text-muted text-center py-4">Sin eventos</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

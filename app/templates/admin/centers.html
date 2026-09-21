@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Centros · PhacoStats{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Centros</h1>
+<p class="text-muted">Solo el administrador general puede crear centros y administradores de centro.</p>
+
+<form method="post" action="/admin/active-center" class="card card-body mb-4 row g-2 align-items-end">
+  <div class="col-md-6">
+    <label class="form-label" for="center_id">Centro activo (vista)</label>
+    <select class="form-select" name="center_id" id="center_id">
+      {% for c in centers %}
+      <option value="{{ c.id }}">{{ c.short_name }} ({{ c.code }})</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3"><button class="btn btn-outline-primary" type="submit">Cambiar centro activo</button></div>
+</form>
+
+<div class="card mb-4"><div class="card-body">
+  <h2 class="h5">Nuevo centro</h2>
+  <form method="post" action="/admin/centers/new" class="row g-3">
+    <div class="col-md-3"><label class="form-label">Código</label><input class="form-control" name="code" required></div>
+    <div class="col-md-3"><label class="form-label">Nombre corto</label><input class="form-control" name="short_name" required></div>
+    <div class="col-md-6"><label class="form-label">Nombre completo</label><input class="form-control" name="full_name" required></div>
+    <div class="col-md-2"><label class="form-label">Primario</label><input class="form-control" type="color" name="primary_color" value="#003366"></div>
+    <div class="col-md-2"><label class="form-label">Secundario</label><input class="form-control" type="color" name="secondary_color" value="#001a33"></div>
+    <div class="col-md-2"><label class="form-label">Acento</label><input class="form-control" type="color" name="accent_color" value="#c9a227"></div>
+    <div class="col-12"><button class="btn btn-primary" type="submit">Crear</button></div>
+  </form>
+</div></div>
+
+{% for c in centers %}
+<div class="card mb-3"><div class="card-body">
+  <h2 class="h5">{{ c.short_name }} <code class="small">{{ c.code }}</code></h2>
+  <p class="small text-muted">{{ c.full_name }}</p>
+  {% set b = c.branding %}
+  <form method="post" action="/admin/centers/{{ c.id }}/branding" enctype="multipart/form-data" class="row g-2 mb-3">
+    <div class="col-md-4"><input class="form-control" name="short_name" value="{{ b.short_name if b else c.short_name }}" required></div>
+    <div class="col-md-8"><input class="form-control" name="full_name" value="{{ b.full_name if b else c.full_name }}" required></div>
+    <div class="col-md-2"><input class="form-control" type="color" name="primary_color" value="{{ b.primary_color if b else '#0b5ea8' }}"></div>
+    <div class="col-md-2"><input class="form-control" type="color" name="secondary_color" value="{{ b.secondary_color if b else '#084a86' }}"></div>
+    <div class="col-md-2"><input class="form-control" type="color" name="accent_color" value="{{ b.accent_color if b else '#c9a227' }}"></div>
+    <div class="col-md-3"><label class="form-label small">Logo PNG/SVG</label><input class="form-control" type="file" name="logo" accept=".png,.svg,.jpg,.jpeg,.webp"></div>
+    <div class="col-md-3"><label class="form-label small">Logo oscuro</label><input class="form-control" type="file" name="logo_dark" accept=".png,.svg,.jpg,.jpeg,.webp"></div>
+    <div class="col-md-3 form-check mt-4"><input class="form-check-input" type="checkbox" name="show_powered_by" {% if not b or b.show_powered_by %}checked{% endif %}><label class="form-check-label">Powered by PhacoStats</label></div>
+    <div class="col-12"><button class="btn btn-sm btn-outline-primary" type="submit">Guardar branding</button></div>
+  </form>
+  <form method="post" action="/admin/centers/{{ c.id }}/admins" class="row g-2">
+    <div class="col-12"><strong class="small">Crear administrador de centro</strong></div>
+    <div class="col-md-3"><input class="form-control" name="username" placeholder="usuario" required></div>
+    <div class="col-md-3"><input class="form-control" name="full_name" placeholder="Nombre" required></div>
+    <div class="col-md-3"><input class="form-control" name="email" placeholder="correo"></div>
+    <div class="col-md-2"><input class="form-control" type="password" name="password" placeholder="clave" required minlength="6"></div>
+    <div class="col-md-1"><button class="btn btn-sm btn-primary w-100" type="submit">+</button></div>
+  </form>
+</div></div>
+{% endfor %}
+{% endblock %}

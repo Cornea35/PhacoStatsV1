@@ -37,6 +37,11 @@ class FollowUp(Base):
         default=DEFAULT_INSTITUTION_CODE,
         index=True,
     )
+    center_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("centers.id"),
+        nullable=True,
+        index=True,
+    )
     visit_date: Mapped[date] = mapped_column(Date, index=True)
     visit_type: Mapped[str] = mapped_column(String(32), index=True)
     postoperative_days: Mapped[int] = mapped_column(Integer)

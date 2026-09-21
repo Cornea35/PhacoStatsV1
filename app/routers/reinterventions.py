@@ -38,7 +38,14 @@ templates = Jinja2Templates(directory="app/templates")
 
 OpsDep = Annotated[
     User,
-    Depends(require_roles(UserRole.ADMIN, UserRole.COORDINATOR, UserRole.SURGEON)),
+    Depends(
+        require_roles(
+            UserRole.GENERAL_ADMIN,
+            UserRole.CENTER_ADMIN,
+            UserRole.COORDINATOR,
+            UserRole.SURGEON,
+        )
+    ),
 ]
 
 

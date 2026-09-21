@@ -38,19 +38,20 @@
   <div class="mb-3">
     <label class="form-label" for="role">Rol</label>
     <select class="form-select" id="role" name="role" required
-            {% if user.role != 'admin' %}disabled{% endif %}>
+            {% if user.role == 'center_admin' %}disabled{% endif %}>
       {% for r in roles %}
-      <option value="{{ r.value }}"
-        {% if edit_user and edit_user.role == r.value %}selected
-        {% elif not edit_user and r.value == 'surgeon' %}selected
+      {% set rval = r.value if r.value is defined else r %}
+      <option value="{{ rval }}"
+        {% if edit_user and edit_user.role == rval %}selected
+        {% elif not edit_user and rval == 'surgeon' %}selected
         {% endif %}>
-        {{ role_labels[r.value] }}
+        {{ role_labels.get(rval, rval) }}
       </option>
       {% endfor %}
     </select>
-    {% if user.role != 'admin' %}
-    <input type="hidden" name="role" value="surgeon">
-    <div class="form-text">El coordinador solo puede gestionar usuarios con rol cirujano.</div>
+    {% if user.role == 'center_admin' %}
+    <input type="hidden" name="role" value="{{ edit_user.role if edit_user else 'surgeon' }}">
+    <div class="form-text">El administrador de centro no puede crear otros administradores.</div>
     {% endif %}
   </div>
 

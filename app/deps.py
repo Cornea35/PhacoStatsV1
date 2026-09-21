@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import Cookie, Depends, HTTPException, Request, status
+from fastapi import Cookie, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -34,26 +34,23 @@ def get_current_user_optional(
     return user
 
 
+def require_roles(*roles: UserRole) -> Callable:
+    """Role gate using active center membership (lazy import avoids cycles)."""
+
+    from app.permissions import require_roles as membership_require_roles
+
+    return membership_require_roles(*roles)
+
+
 def get_current_user(
     user: Annotated[User | None, Depends(get_current_user_optional)],
 ) -> User:
     if user is None:
         raise NotAuthenticatedError()
+    status = getattr(user, "account_status", "active") or "active"
+    if status != "active" or not user.is_active:
+        raise NotAuthenticatedError()
     return user
-
-
-def require_roles(*roles: UserRole) -> Callable:
-    allowed = {r.value for r in roles}
-
-    def dependency(user: Annotated[User, Depends(get_current_user)]) -> User:
-        if user.role not in allowed:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No tiene permiso para esta acción.",
-            )
-        return user
-
-    return dependency
 
 
 def flash(request: Request, message: str, category: str = "success") -> None:

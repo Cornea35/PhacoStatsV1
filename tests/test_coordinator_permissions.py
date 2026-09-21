@@ -139,8 +139,9 @@ def test_coordinator_blocked_from_clinical_routes(client: TestClient, db_session
     assert client.get("/admin/analytics").status_code == 403
     assert client.get("/admin/analytics/export").status_code == 403
     assert client.get("/users").status_code == 403
-    assert client.get("/surgeries/new").status_code == 403
-    assert client.get(f"/surgeries/{surgery.id}/edit").status_code == 403
+    # Coordinator may capture operative cases (multi-center ops role)
+    assert client.get("/surgeries/new").status_code == 200
+    assert client.get(f"/surgeries/{surgery.id}/edit").status_code == 200
     assert client.get(f"/surgeries/{surgery.id}/follow-ups/new").status_code == 403
     dash = client.get("/dashboard")
     assert "odds" not in dash.text.lower()

@@ -28,10 +28,12 @@ from app.models import User
 from app.permissions import (
     Permission,
     assert_surgery_institution_access,
+    get_tenant_context,
     has_permission,
     institution_scope,
     is_coordinator,
     require_permission,
+    TenantContext,
 )
 from app.services.followups import list_follow_ups_for_surgery
 from app.services.ops_export import export_ops_xlsx
@@ -50,11 +52,26 @@ templates = Jinja2Templates(directory="app/templates")
 
 StaffDep = Annotated[
     User,
-    Depends(require_roles(UserRole.SURGEON, UserRole.COORDINATOR, UserRole.ADMIN)),
+    Depends(
+        require_roles(
+            UserRole.SURGEON,
+            UserRole.COORDINATOR,
+            UserRole.GENERAL_ADMIN,
+            UserRole.CENTER_ADMIN,
+            UserRole.SUPERVISOR,
+        )
+    ),
 ]
 ClinicalWriteDep = Annotated[
     User,
-    Depends(require_roles(UserRole.SURGEON, UserRole.ADMIN)),
+    Depends(
+        require_roles(
+            UserRole.SURGEON,
+            UserRole.COORDINATOR,
+            UserRole.CENTER_ADMIN,
+            UserRole.GENERAL_ADMIN,
+        )
+    ),
 ]
 
 
@@ -262,6 +279,7 @@ def surgery_create(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     current: ClinicalWriteDep,
+    ctx: Annotated[TenantContext, Depends(get_tenant_context)],
     case_code: Annotated[str, Form()],
     surgery_date: Annotated[date, Form()],
     eye: Annotated[str, Form()],
@@ -315,6 +333,8 @@ def surgery_create(
             risk_codes=list(risk_codes or []),
             complication=complication,
             iol_type=iol_type or None,
+            institution_id=ctx.institution_code or current.institution_id,
+            center_id=ctx.center_id,
         )
     except SurgeryValidationError as exc:
         flash(request, str(exc), "danger")
@@ -373,7 +393,12 @@ def surgery_detail(
             "can_manage_reintervention": has_permission(
                 current, Permission.MANAGE_REINTERVENTION
             )
-            or current.role in {UserRole.ADMIN.value, UserRole.SURGEON.value},
+            or current.role
+            in {
+                UserRole.GENERAL_ADMIN.value,
+                UserRole.CENTER_ADMIN.value,
+                UserRole.SURGEON.value,
+            },
         },
     )
 

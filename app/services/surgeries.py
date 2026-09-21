@@ -123,6 +123,7 @@ def create_surgery(
     complication: ComplicationEvent,
     iol_type: str | None = None,
     institution_id: str | None = None,
+    center_id: int | None = None,
 ) -> Surgery:
     case_code = case_code.strip().upper()
     if not case_code:
@@ -131,7 +132,13 @@ def create_surgery(
         raise SurgeryValidationError(f"El código {case_code} ya existe.")
 
     surgeon = db.get(User, surgeon_id)
-    if surgeon is None or surgeon.role != "surgeon" or not surgeon.is_active:
+    from app.permissions import normalize_role
+
+    if (
+        surgeon is None
+        or normalize_role(surgeon.role) != "surgeon"
+        or not surgeon.is_active
+    ):
         raise SurgeryValidationError("Seleccione un cirujano activo válido.")
 
     surgery = Surgery(
@@ -140,7 +147,9 @@ def create_surgery(
         eye=eye,
         technique=technique.strip() or "Phacoemulsification",
         iol_type=_normalize_iol_type(iol_type),
-        institution_id=(institution_id or DEFAULT_INSTITUTION_CODE).strip() or DEFAULT_INSTITUTION_CODE,
+        institution_id=(institution_id or DEFAULT_INSTITUTION_CODE).strip()
+        or DEFAULT_INSTITUTION_CODE,
+        center_id=center_id,
         notes=notes.strip() if notes else None,
         surgeon_id=surgeon_id,
         created_by_id=created_by.id,
@@ -178,7 +187,9 @@ def update_surgery(
         raise SurgeryValidationError(f"El código {case_code} ya existe.")
 
     surgeon = db.get(User, surgeon_id)
-    if surgeon is None or surgeon.role != "surgeon" or not surgeon.is_active:
+    from app.permissions import normalize_role
+
+    if surgeon is None or normalize_role(surgeon.role) != "surgeon" or not surgeon.is_active:
         raise SurgeryValidationError("Seleccione un cirujano activo válido.")
 
     surgery.case_code = case_code

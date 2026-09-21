@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Solicitudes · PhacoStats{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Solicitudes de registro</h1>
+<div class="table-responsive card">
+  <table class="table mb-0 align-middle">
+    <thead><tr><th>Nombre</th><th>Correo</th><th>Centro</th><th>Formación</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td>{{ r.full_name }}</td>
+        <td>{{ r.email }}</td>
+        <td>{{ r.center.short_name if r.center else r.center_id }}</td>
+        <td>{{ r.training_level or '—' }}</td>
+        <td>
+          <form method="post" action="/admin/registrations/{{ r.id }}/decide" class="d-flex gap-2 flex-wrap">
+            <select class="form-select form-select-sm" name="role" style="width:auto">
+              {% for code in assignable_roles %}
+              <option value="{{ code }}">{{ role_labels[code] }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn btn-sm btn-success" name="decision" value="approve" type="submit">Aprobar</button>
+            <input class="form-control form-control-sm" name="reason" placeholder="Motivo rechazo" style="width:10rem">
+            <button class="btn btn-sm btn-outline-danger" name="decision" value="reject" type="submit">Rechazar</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="text-muted text-center py-4">Sin solicitudes pendientes</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

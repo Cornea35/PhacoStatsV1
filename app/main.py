@@ -16,16 +16,19 @@ from app.deps import NotAuthenticatedError
 from app.routers import (
     admin_analytics,
     auth,
+    centers_admin,
     dashboard,
     followups,
     profile,
     refractive,
     reinterventions,
+    risk_profile,
     surgeries,
     users,
 )
-# Import models so metadata includes FollowUp tables
+# Import models so metadata includes FollowUp / center tables
 from app import models as _models  # noqa: F401
+from app.migrations.multicenter import migrate_users_and_cases_to_centers
 from app.seed import seed_if_empty
 
 settings = get_settings()
@@ -70,6 +73,8 @@ def _ensure_schema() -> None:
                         "ADD COLUMN institution_id VARCHAR(32) NOT NULL DEFAULT 'CODET'"
                     )
                 )
+            if "center_id" not in columns:
+                conn.execute(text("ALTER TABLE surgeries ADD COLUMN center_id INTEGER"))
     if "users" in inspector.get_table_names():
         user_cols = {col["name"] for col in inspector.get_columns("users")}
         with engine.begin() as conn:
@@ -80,6 +85,26 @@ def _ensure_schema() -> None:
                         "ADD COLUMN institution_id VARCHAR(32) NOT NULL DEFAULT 'CODET'"
                     )
                 )
+            if "email" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR(180)"))
+            if "specialty" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN specialty VARCHAR(120)"))
+            if "training_level" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN training_level VARCHAR(32)"))
+            if "professional_id" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN professional_id VARCHAR(64)"))
+            if "account_status" not in user_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE users "
+                        "ADD COLUMN account_status VARCHAR(32) NOT NULL DEFAULT 'active'"
+                    )
+                )
+    if "follow_ups" in inspector.get_table_names():
+        fu_cols = {col["name"] for col in inspector.get_columns("follow_ups")}
+        if "center_id" not in fu_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE follow_ups ADD COLUMN center_id INTEGER"))
 
     # Migrate legacy bool reintervention → follow-up rows (idempotent)
     try:
@@ -88,6 +113,7 @@ def _ensure_schema() -> None:
         db = SessionLocal()
         try:
             migrate_legacy_reinterventions(db)
+            migrate_users_and_cases_to_centers(db)
         finally:
             db.close()
     except Exception:
@@ -130,6 +156,8 @@ app.include_router(surgeries.router)
 app.include_router(reinterventions.router)
 app.include_router(users.router)
 app.include_router(profile.router)
+app.include_router(centers_admin.router)
+app.include_router(risk_profile.router)
 
 
 @app.exception_handler(NotAuthenticatedError)
