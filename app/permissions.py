@@ -110,6 +110,7 @@ class TenantContext:
     center_id: int | None
     institution_code: str | None
     membership: CenterMembership | None
+    view_all: bool = False
 
     @property
     def is_general_admin(self) -> bool:
@@ -120,6 +121,7 @@ class TenantContext:
 
 
 SESSION_CENTER_KEY = "active_center_id"
+SESSION_CENTER_ALL = "all"
 
 
 def normalize_role(role: str | None) -> str:
@@ -161,23 +163,61 @@ def require_roles(*roles: UserRole):
         ctx.user.role = ctx.role
         if ctx.institution_code:
             ctx.user.institution_id = ctx.institution_code
+        elif ctx.is_general_admin and ctx.view_all:
+            # Preserve last known code on user row; scope uses ctx
+            pass
         return ctx.user
 
     return dependency
 
 
 def institution_scope(user: User) -> str | None:
-    """Legacy helper: general_admin → None (all); others → institution code."""
+    """Legacy helper for non-ctx callers.
+
+    general_admin without an explicit per-request scope → all centers (None).
+    Prefer scope_institution(ctx) in new code.
+    """
     if normalize_role(user.role) == UserRole.GENERAL_ADMIN.value:
+        # Populated by get_tenant_context / middleware for active center views
+        scoped = getattr(user, "_active_institution_code", None)
+        if scoped == SESSION_CENTER_ALL:
+            return None
+        if scoped:
+            return scoped
         return None
     return (user.institution_id or DEFAULT_INSTITUTION_CODE).strip() or DEFAULT_INSTITUTION_CODE
 
 
-def center_scope_id(ctx: TenantContext) -> int | None:
-    """None = all centers (general admin); else forced center id."""
-    if ctx.is_general_admin:
+def scope_institution(ctx: TenantContext) -> str | None:
+    """Institution code filter: None means all centers."""
+    if ctx.view_all:
+        return None
+    return ctx.institution_code
+
+
+def scope_center_id(ctx: TenantContext) -> int | None:
+    """Center id filter: None means all centers."""
+    if ctx.view_all:
         return None
     return ctx.center_id
+
+
+def center_scope_id(ctx: TenantContext) -> int | None:
+    return scope_center_id(ctx)
+
+
+def attach_tenant_ui_state(request: Request, db: Session, ctx: TenantContext) -> None:
+    """Populate request.state for Jinja branding / center switcher on every page."""
+    from app.services.branding import get_theme_for_center, list_active_centers
+
+    theme = get_theme_for_center(db, ctx.center_id)
+    request.state.theme = theme
+    request.state.brand_css = theme.css_variables() if theme else ""
+    request.state.active_center = ctx.center
+    request.state.view_all_centers = bool(ctx.view_all)
+    can_switch = ctx.has(Permission.SWITCH_CENTER) or ctx.is_general_admin
+    request.state.can_switch_center = can_switch
+    request.state.switchable_centers = list_active_centers(db) if can_switch else []
 
 
 def is_coordinator(user: User) -> bool:
@@ -197,7 +237,14 @@ def assert_surgery_institution_access(user: User, surgery_institution_id: str) -
 
 def assert_center_access(ctx: TenantContext, center_id: int | None) -> None:
     if ctx.is_general_admin:
-        return
+        if ctx.view_all:
+            return
+        if center_id is None or ctx.center_id == center_id:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cambie al centro correspondiente para ver estos datos.",
+        )
     if center_id is None or ctx.center_id != center_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -250,28 +297,58 @@ def get_tenant_context(
         .all()
     )
 
-    active_center_id = request.session.get(SESSION_CENTER_KEY)
+    active_raw = request.session.get(SESSION_CENTER_KEY)
     membership = None
     center = None
 
     if role == UserRole.GENERAL_ADMIN.value:
-        if active_center_id:
-            center = db.get(Center, int(active_center_id))
+        view_all = active_raw in {SESSION_CENTER_ALL, "0", 0}
+        if view_all:
+            user._active_institution_code = SESSION_CENTER_ALL  # type: ignore[attr-defined]
+            ctx = TenantContext(
+                user=user,
+                role=role,
+                center=None,
+                center_id=None,
+                institution_code=None,
+                membership=None,
+                view_all=True,
+            )
+            attach_tenant_ui_state(request, db, ctx)
+            return ctx
+        if active_raw not in {None, ""}:
+            try:
+                center = db.get(Center, int(active_raw))
+            except (TypeError, ValueError):
+                center = None
         if center is None and memberships:
             center = db.get(Center, memberships[0].center_id)
         if center is None:
             center = db.query(Center).filter(Center.code == DEFAULT_INSTITUTION_CODE).first()
-        return TenantContext(
+        if center:
+            request.session[SESSION_CENTER_KEY] = center.id
+            user.institution_id = center.code
+            user._active_institution_code = center.code  # type: ignore[attr-defined]
+        ctx = TenantContext(
             user=user,
             role=role,
             center=center,
             center_id=center.id if center else None,
             institution_code=center.code if center else DEFAULT_INSTITUTION_CODE,
             membership=None,
+            view_all=False,
         )
+        attach_tenant_ui_state(request, db, ctx)
+        return ctx
 
-    if active_center_id:
-        membership = next((m for m in memberships if m.center_id == int(active_center_id)), None)
+    if active_raw not in {None, "", SESSION_CENTER_ALL}:
+        try:
+            membership = next(
+                (m for m in memberships if m.center_id == int(active_raw)),
+                None,
+            )
+        except (TypeError, ValueError):
+            membership = None
     if membership is None and memberships:
         membership = memberships[0]
     if membership is None:
@@ -285,13 +362,17 @@ def get_tenant_context(
     user.role = role
     if center:
         user.institution_id = center.code
+        user._active_institution_code = center.code  # type: ignore[attr-defined]
         request.session[SESSION_CENTER_KEY] = center.id
 
-    return TenantContext(
+    ctx = TenantContext(
         user=user,
         role=role,
         center=center,
         center_id=membership.center_id,
         institution_code=center.code if center else user.institution_id,
         membership=membership,
+        view_all=False,
     )
+    attach_tenant_ui_state(request, db, ctx)
+    return ctx

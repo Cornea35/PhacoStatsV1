@@ -276,3 +276,70 @@ def test_surgical_risk_insufficient_and_oe(
 def test_coordinator_can_create_surgery_form(client: TestClient):
     login(client, "coord", "coord123")
     assert client.get("/surgeries/new").status_code == 200
+
+
+def test_general_admin_center_switcher_filters_dashboard(
+    client: TestClient,
+    db_session: Session,
+    seed_users: dict,
+):
+    from app.constants import CENTER_CODE_UANL
+
+    centers = {c.code: c for c in db_session.query(Center).all()}
+    uanl = centers[CENTER_CODE_UANL]
+    codet = centers[DEFAULT_INSTITUTION_CODE]
+
+    db_session.add_all(
+        [
+            Surgery(
+                case_code="SW-CODET",
+                surgery_date=date(2026, 3, 1),
+                eye="OD",
+                technique="Phaco",
+                surgeon_id=seed_users["surgeon"].id,
+                created_by_id=seed_users["admin"].id,
+                institution_id=DEFAULT_INSTITUTION_CODE,
+                center_id=codet.id,
+            ),
+            Surgery(
+                case_code="SW-UANL",
+                surgery_date=date(2026, 3, 2),
+                eye="OS",
+                technique="Phaco",
+                surgeon_id=seed_users["surgeon"].id,
+                created_by_id=seed_users["admin"].id,
+                institution_id=CENTER_CODE_UANL,
+                center_id=uanl.id,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    login(client, "admin", "admin123")
+    dash = client.get("/dashboard")
+    assert dash.status_code == 200
+    assert 'name="center_id"' in dash.text
+    assert "Todos" in dash.text
+
+    switched = client.post(
+        "/admin/active-center",
+        data={"center_id": str(uanl.id), "next": "/surgeries"},
+        follow_redirects=False,
+    )
+    assert switched.status_code == 303
+    assert switched.headers["location"] == "/surgeries"
+
+    surgeries = client.get("/surgeries")
+    assert surgeries.status_code == 200
+    assert "SW-UANL" in surgeries.text
+    assert "SW-CODET" not in surgeries.text
+
+    all_centers = client.post(
+        "/admin/active-center",
+        data={"center_id": "all", "next": "/surgeries"},
+        follow_redirects=False,
+    )
+    assert all_centers.status_code == 303
+    listed = client.get("/surgeries")
+    assert "SW-UANL" in listed.text
+    assert "SW-CODET" in listed.text

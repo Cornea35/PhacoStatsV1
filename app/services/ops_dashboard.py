@@ -28,12 +28,15 @@ def compute_ops_dashboard(
     db: Session,
     *,
     institution_id: str | None = None,
+    center_id: int | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
 ) -> OpsDashboardStats:
     q = db.query(Surgery)
     if institution_id:
         q = q.filter(Surgery.institution_id == institution_id)
+    elif center_id is not None:
+        q = q.filter(Surgery.center_id == center_id)
     if date_from is not None:
         q = q.filter(Surgery.surgery_date >= date_from)
     if date_to is not None:

@@ -5,11 +5,13 @@
 <p class="text-muted">Solo el administrador general puede crear centros y administradores de centro.</p>
 
 <form method="post" action="/admin/active-center" class="card card-body mb-4 row g-2 align-items-end">
+  <input type="hidden" name="next" value="/admin/centers">
   <div class="col-md-6">
     <label class="form-label" for="center_id">Centro activo (vista)</label>
     <select class="form-select" name="center_id" id="center_id">
+      <option value="all" {% if view_all_centers %}selected{% endif %}>Todos los centros</option>
       {% for c in centers %}
-      <option value="{{ c.id }}">{{ c.short_name }} ({{ c.code }})</option>
+      <option value="{{ c.id }}" {% if active_center and active_center.id == c.id and not view_all_centers %}selected{% endif %}>{{ c.short_name }} ({{ c.code }})</option>
       {% endfor %}
     </select>
   </div>

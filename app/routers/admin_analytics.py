@@ -8,19 +8,19 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.constants import UserRole
 from app.database import get_db
 from app.deps import pop_flashes, require_roles
 from app.models import User
+from app.permissions import TenantContext, get_tenant_context, scope_center_id, scope_institution
 from app.services.date_range import Period, current_and_previous_month, resolve_date_range
 from app.statistics.analytics import build_advanced_analytics
 from app.statistics.export import build_analytics_workbook
+from app.templating import templates
 
 router = APIRouter(prefix="/admin/analytics", tags=["advanced-analytics"])
-templates = Jinja2Templates(directory="app/templates")
 
 AdminDep = Annotated[
     User,
@@ -37,6 +37,8 @@ def _bundle(
     date_to: date | None,
     planned_cases: int,
     max_difference: int,
+    institution_id: str | None,
+    center_id: int | None,
 ):
     resolved_from, resolved_to, period, month_value, range_label = resolve_date_range(
         period=period,
@@ -50,6 +52,8 @@ def _bundle(
         date_to=resolved_to,
         planned_cases=planned_cases,
         max_difference=max_difference,
+        institution_id=institution_id,
+        center_id=center_id,
     )
     return bundle, resolved_from, resolved_to, period, month_value, range_label
 
@@ -59,6 +63,7 @@ def advanced_analytics_page(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     current: AdminDep,
+    ctx: Annotated[TenantContext, Depends(get_tenant_context)],
     period: Annotated[Period, Query()] = "all",
     month: Annotated[str | None, Query()] = None,
     date_from: Annotated[date | None, Query()] = None,
@@ -66,6 +71,8 @@ def advanced_analytics_page(
     planned_cases: Annotated[int, Query(ge=0, le=1000)] = 20,
     max_difference: Annotated[int, Query(ge=0, le=100)] = 3,
 ):
+    inst = scope_institution(ctx)
+    center_id = scope_center_id(ctx)
     bundle, resolved_from, resolved_to, period, month_value, range_label = _bundle(
         db,
         period=period,
@@ -74,6 +81,8 @@ def advanced_analytics_page(
         date_to=date_to,
         planned_cases=planned_cases,
         max_difference=max_difference,
+        institution_id=inst,
+        center_id=center_id,
     )
     current_month, prev_month = current_and_previous_month()
     chart_payload = {
@@ -130,6 +139,7 @@ def advanced_analytics_page(
 def export_analytics_excel(
     db: Annotated[Session, Depends(get_db)],
     current: AdminDep,
+    ctx: Annotated[TenantContext, Depends(get_tenant_context)],
     period: Annotated[Period, Query()] = "all",
     month: Annotated[str | None, Query()] = None,
     date_from: Annotated[date | None, Query()] = None,
@@ -145,6 +155,8 @@ def export_analytics_excel(
         date_to=date_to,
         planned_cases=planned_cases,
         max_difference=max_difference,
+        institution_id=scope_institution(ctx),
+        center_id=scope_center_id(ctx),
     )
     payload = build_analytics_workbook(bundle)
     filename = "phacostats_advanced_analytics.xlsx"

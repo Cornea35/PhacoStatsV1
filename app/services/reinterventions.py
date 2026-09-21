@@ -241,6 +241,7 @@ def list_reinterventions(
     db: Session,
     *,
     institution_id: str | None = None,
+    center_id: int | None = None,
     surgeon_id: int | None = None,
     status: str | None = None,
     pending_only: bool = False,
@@ -256,6 +257,8 @@ def list_reinterventions(
     )
     if institution_id:
         q = q.filter(Surgery.institution_id == institution_id)
+    elif center_id is not None:
+        q = q.filter(Surgery.center_id == center_id)
     if surgeon_id is not None:
         q = q.filter(Surgery.surgeon_id == surgeon_id)
     if not include_voided:

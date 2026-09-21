@@ -4,20 +4,35 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
 from app.constants import ROLE_LABELS
-from app.deps import get_current_user, pop_flashes
+from app.deps import pop_flashes, require_roles
 from app.models import User
+from app.constants import UserRole
+from app.permissions import TenantContext, get_tenant_context
+from app.templating import templates
 
 router = APIRouter(tags=["profile"])
-templates = Jinja2Templates(directory="app/templates")
+
+StaffDep = Annotated[
+    User,
+    Depends(
+        require_roles(
+            UserRole.SURGEON,
+            UserRole.COORDINATOR,
+            UserRole.GENERAL_ADMIN,
+            UserRole.CENTER_ADMIN,
+            UserRole.SUPERVISOR,
+        )
+    ),
+]
 
 
 @router.get("/profile", response_class=HTMLResponse)
 def profile_page(
     request: Request,
-    current: Annotated[User, Depends(get_current_user)],
+    current: StaffDep,
+    ctx: Annotated[TenantContext, Depends(get_tenant_context)],
 ):
     return templates.TemplateResponse(
         request,

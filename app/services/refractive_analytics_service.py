@@ -156,6 +156,7 @@ def compute_refractive_results(
     *,
     surgeon_id: int | None = None,
     institution_id: str | None = None,
+    center_id: int | None = None,
     eye: str | None = None,
     iol_type: str | None = None,
     visit_window: VisitWindow = "last_visit",
@@ -174,6 +175,8 @@ def compute_refractive_results(
         q = q.filter(Surgery.surgeon_id == surgeon_id)
     if institution_id:
         q = q.filter(Surgery.institution_id == institution_id)
+    elif center_id is not None:
+        q = q.filter(Surgery.center_id == center_id)
     if eye:
         q = q.filter(Surgery.eye == eye)
     if iol_type:
@@ -367,10 +370,13 @@ def compute_refractive_results(
     return result
 
 
-def list_active_surgeons(db: Session) -> list[User]:
-    return (
-        db.query(User)
-        .filter(User.role == "surgeon", User.is_active.is_(True))
-        .order_by(User.full_name)
-        .all()
-    )
+def list_active_surgeons(
+    db: Session,
+    *,
+    institution_id: str | None = None,
+) -> list[User]:
+    q = db.query(User).filter(User.role == "surgeon", User.is_active.is_(True))
+    if institution_id:
+        q = q.filter(User.institution_id == institution_id)
+    return q.order_by(User.full_name).all()
+

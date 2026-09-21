@@ -80,6 +80,14 @@ def _active_surgeons(db: Session) -> list[User]:
     )
 
 
+def _apply_scope_filters(query, *, institution_id: str | None = None, center_id: int | None = None):
+    if institution_id:
+        return query.filter(Surgery.institution_id == institution_id)
+    if center_id is not None:
+        return query.filter(Surgery.center_id == center_id)
+    return query
+
+
 def _apply_date_filters(query, date_from: date | None, date_to: date | None):
     if date_from is not None:
         query = query.filter(Surgery.surgery_date >= date_from)
@@ -93,6 +101,8 @@ def _surgeon_case_counts(
     *,
     date_from: date | None,
     date_to: date | None,
+    institution_id: str | None = None,
+    center_id: int | None = None,
 ) -> list[tuple[User, int, int]]:
     surgeons = _active_surgeons(db)
     rows: list[tuple[User, int, int]] = []
@@ -102,6 +112,7 @@ def _surgeon_case_counts(
             date_from,
             date_to,
         )
+        base = _apply_scope_filters(base, institution_id=institution_id, center_id=center_id)
         total = base.count()
         pcr = (
             base.join(ComplicationEvent, ComplicationEvent.surgery_id == Surgery.id)
@@ -120,8 +131,16 @@ def compute_surgeon_analytics(
     *,
     date_from: date | None = None,
     date_to: date | None = None,
+    institution_id: str | None = None,
+    center_id: int | None = None,
 ) -> list[SurgeonAnalyticsRow]:
-    rows = _surgeon_case_counts(db, date_from=date_from, date_to=date_to)
+    rows = _surgeon_case_counts(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        institution_id=institution_id,
+        center_id=center_id,
+    )
     grand_total = sum(total for _, total, _ in rows)
     grand_pcr = sum(pcr for _, _, pcr in rows)
 
@@ -163,12 +182,15 @@ def compute_risk_factor_analytics(
     date_from: date | None = None,
     date_to: date | None = None,
     top_n: int = 10,
+    institution_id: str | None = None,
+    center_id: int | None = None,
 ) -> list[RiskFactorStat]:
     query = db.query(Surgery.id).join(User, User.id == Surgery.surgeon_id).filter(
         User.role == UserRole.SURGEON.value,
         User.is_active.is_(True),
     )
     query = _apply_date_filters(query, date_from, date_to)
+    query = _apply_scope_filters(query, institution_id=institution_id, center_id=center_id)
     surgery_ids = [row[0] for row in query.all()]
     total = len(surgery_ids)
     if not surgery_ids:
@@ -241,6 +263,8 @@ def compute_reintervention_type_analytics(
     *,
     date_from: date | None = None,
     date_to: date | None = None,
+    institution_id: str | None = None,
+    center_id: int | None = None,
 ) -> list[ReinterventionTypeStat]:
     """Count non-voided reintervention follow-ups by general type in the period."""
     q = (
@@ -253,6 +277,7 @@ def compute_reintervention_type_analytics(
         .group_by(ReinterventionFollowUp.reintervention_type)
     )
     q = _apply_date_filters(q, date_from, date_to)
+    q = _apply_scope_filters(q, institution_id=institution_id, center_id=center_id)
     rows = q.all()
     counts = {code or "unspecified": int(count) for code, count in rows}
     # Include all catalog types (0 if absent) so admin sees full breakdown
@@ -286,11 +311,29 @@ def build_advanced_analytics(
     date_to: date | None = None,
     planned_cases: int = 20,
     max_difference: int = 3,
+    institution_id: str | None = None,
+    center_id: int | None = None,
 ) -> AdvancedAnalyticsBundle:
-    surgeon_rows = compute_surgeon_analytics(db, date_from=date_from, date_to=date_to)
-    risk_factors = compute_risk_factor_analytics(db, date_from=date_from, date_to=date_to)
+    surgeon_rows = compute_surgeon_analytics(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        institution_id=institution_id,
+        center_id=center_id,
+    )
+    risk_factors = compute_risk_factor_analytics(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        institution_id=institution_id,
+        center_id=center_id,
+    )
     reintervention_types = compute_reintervention_type_analytics(
-        db, date_from=date_from, date_to=date_to
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        institution_id=institution_id,
+        center_id=center_id,
     )
     distribution = build_distribution(
         surgeon_rows,

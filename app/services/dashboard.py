@@ -38,6 +38,8 @@ def compute_dashboard(
     db: Session,
     *,
     surgeon_id: int | None = None,
+    institution_id: str | None = None,
+    center_id: int | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     top_risk_n: int = 10,
@@ -45,6 +47,10 @@ def compute_dashboard(
     base = db.query(Surgery.id)
     if surgeon_id is not None:
         base = base.filter(Surgery.surgeon_id == surgeon_id)
+    if institution_id:
+        base = base.filter(Surgery.institution_id == institution_id)
+    elif center_id is not None:
+        base = base.filter(Surgery.center_id == center_id)
     if date_from is not None:
         base = base.filter(Surgery.surgery_date >= date_from)
     if date_to is not None:

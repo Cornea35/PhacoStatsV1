@@ -62,7 +62,19 @@
           {% endif %}
           {% endif %}
         </ul>
-        <span class="navbar-text text-white-50 me-3">{{ user.full_name }} · {{ user.role }}{% if theme %} · {{ theme.short_name }}{% endif %}</span>
+        {% if can_switch_center and switchable_centers %}
+        <form method="post" action="/admin/active-center" class="d-flex align-items-center gap-2 me-3 my-2 my-lg-0">
+          <input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+          <label class="navbar-text text-white-50 small mb-0 me-1" for="navCenterSwitch">Centro</label>
+          <select class="form-select form-select-sm" id="navCenterSwitch" name="center_id" onchange="this.form.submit()" style="min-width: 9rem;">
+            <option value="all" {% if view_all_centers %}selected{% endif %}>Todos</option>
+            {% for c in switchable_centers %}
+            <option value="{{ c.id }}" {% if active_center and active_center.id == c.id and not view_all_centers %}selected{% endif %}>{{ c.short_name }}</option>
+            {% endfor %}
+          </select>
+        </form>
+        {% endif %}
+        <span class="navbar-text text-white-50 me-3">{{ user.full_name }} · {{ user.role }}{% if view_all_centers %} · Todos{% elif theme %} · {{ theme.short_name }}{% endif %}</span>
         <form method="post" action="/logout" class="d-inline">
           <button class="btn btn-outline-light btn-sm" type="submit">Salir</button>
         </form>

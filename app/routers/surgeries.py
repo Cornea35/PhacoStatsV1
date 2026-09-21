@@ -5,7 +5,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.constants import (
@@ -33,6 +32,8 @@ from app.permissions import (
     institution_scope,
     is_coordinator,
     require_permission,
+    scope_center_id,
+    scope_institution,
     TenantContext,
 )
 from app.services.followups import list_follow_ups_for_surgery
@@ -46,9 +47,9 @@ from app.services.surgeries import (
     list_surgeries,
     update_surgery,
 )
+from app.templating import templates
 
 router = APIRouter(prefix="/surgeries", tags=["surgeries"])
-templates = Jinja2Templates(directory="app/templates")
 
 StaffDep = Annotated[
     User,
@@ -159,8 +160,12 @@ def _parse_complication_form(
 def surgeries_ops_export(
     db: Annotated[Session, Depends(get_db)],
     current: Annotated[User, Depends(require_permission(Permission.EXPORT_OPS))],
+    ctx: Annotated[TenantContext, Depends(get_tenant_context)],
 ):
-    content = export_ops_xlsx(db, institution_id=institution_scope(current))
+    content = export_ops_xlsx(
+        db,
+        institution_id=scope_institution(ctx) or institution_scope(current),
+    )
     return Response(
         content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -173,6 +178,7 @@ def surgeries_list(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     current: StaffDep,
+    ctx: Annotated[TenantContext, Depends(get_tenant_context)],
     q: Annotated[str | None, Query(description="Código de cirugía")] = None,
     complication: Annotated[str, Query()] = "all",
     reintervention: Annotated[str, Query()] = "all",
@@ -184,7 +190,8 @@ def surgeries_list(
     date_to: Annotated[date | None, Query()] = None,
 ):
     own_surgeon = current.id if current.role == UserRole.SURGEON.value else None
-    inst = institution_scope(current) if is_coordinator(current) else None
+    inst = scope_institution(ctx)
+    center_id = scope_center_id(ctx)
     case_q = (q or "").strip() or None
     comp = complication if complication in {"all", "yes", "no"} else "all"
     reint = reintervention if reintervention in {"all", "yes", "no"} else "all"
@@ -197,6 +204,7 @@ def surgeries_list(
         db,
         surgeon_id=own_surgeon,
         institution_id=inst,
+        center_id=center_id,
         case_code=case_q,
         complication=None if comp == "all" else comp,
         reintervention=None if reint == "all" else reint,

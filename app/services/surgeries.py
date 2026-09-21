@@ -253,6 +253,7 @@ def list_surgeries(
     *,
     surgeon_id: int | None = None,
     institution_id: str | None = None,
+    center_id: int | None = None,
     case_code: str | None = None,
     complication: str | None = None,
     reintervention: str | None = None,
@@ -286,6 +287,8 @@ def list_surgeries(
         q = q.filter(Surgery.surgeon_id == filter_surgeon_id)
     if institution_id:
         q = q.filter(Surgery.institution_id == institution_id)
+    elif center_id is not None:
+        q = q.filter(Surgery.center_id == center_id)
     if date_from is not None:
         q = q.filter(Surgery.surgery_date >= date_from)
     if date_to is not None:

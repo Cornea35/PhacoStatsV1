@@ -5,7 +5,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.constants import (
@@ -22,7 +21,13 @@ from app.constants import (
 from app.database import get_db
 from app.deps import flash, pop_flashes, require_roles
 from app.models import User
-from app.permissions import assert_surgery_access, institution_scope
+from app.permissions import (
+    TenantContext,
+    assert_surgery_access,
+    get_tenant_context,
+    scope_center_id,
+    scope_institution,
+)
 from app.services.reinterventions import (
     ReinterventionValidationError,
     create_reintervention,
@@ -32,9 +37,9 @@ from app.services.reinterventions import (
     void_reintervention,
 )
 from app.services.surgeries import get_surgery_detail
+from app.templating import templates
 
 router = APIRouter(prefix="/reinterventions", tags=["reinterventions"])
-templates = Jinja2Templates(directory="app/templates")
 
 OpsDep = Annotated[
     User,
@@ -62,13 +67,13 @@ def _form_labels() -> dict:
     }
 
 
-def _list_scope(current: User) -> tuple[str | None, int | None]:
-    """Return (institution_id, surgeon_id) filters for list views."""
+def _list_scope(current: User, ctx: TenantContext) -> tuple[str | None, int | None, int | None]:
+    """Return (institution_id, center_id, surgeon_id) filters for list views."""
+    inst = scope_institution(ctx)
+    center_id = scope_center_id(ctx)
     if current.role == UserRole.SURGEON.value:
-        return institution_scope(current), current.id
-    if current.role == UserRole.COORDINATOR.value:
-        return institution_scope(current), None
-    return None, None
+        return inst, center_id, current.id
+    return inst, center_id, None
 
 
 @router.get("", response_class=HTMLResponse)
@@ -76,12 +81,14 @@ def reinterventions_list(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     current: OpsDep,
+    ctx: Annotated[TenantContext, Depends(get_tenant_context)],
     status_filter: Annotated[str, Query(alias="status")] = "",
 ):
-    inst, surgeon_id = _list_scope(current)
+    inst, center_id, surgeon_id = _list_scope(current, ctx)
     items = list_reinterventions(
         db,
         institution_id=inst,
+        center_id=center_id,
         surgeon_id=surgeon_id,
         status=status_filter or None,
         pending_only=False,
@@ -105,11 +112,13 @@ def reinterventions_pending(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     current: OpsDep,
+    ctx: Annotated[TenantContext, Depends(get_tenant_context)],
 ):
-    inst, surgeon_id = _list_scope(current)
+    inst, center_id, surgeon_id = _list_scope(current, ctx)
     items = list_reinterventions(
         db,
         institution_id=inst,
+        center_id=center_id,
         surgeon_id=surgeon_id,
         pending_only=True,
     )

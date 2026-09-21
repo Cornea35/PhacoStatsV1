@@ -6,21 +6,26 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.constants import REINTERVENTION_STATUS_LABELS, UserRole
 from app.database import get_db
 from app.deps import pop_flashes, require_roles
 from app.models import User
-from app.permissions import institution_scope, is_coordinator
+from app.permissions import (
+    TenantContext,
+    get_tenant_context,
+    is_coordinator,
+    scope_center_id,
+    scope_institution,
+)
 from app.services.dashboard import compute_dashboard
 from app.services.date_range import Period, current_and_previous_month, resolve_date_range
 from app.services.ops_dashboard import compute_ops_dashboard
 from app.services.refractive import list_active_surgeons
+from app.templating import templates
 
 router = APIRouter(tags=["dashboard"])
-templates = Jinja2Templates(directory="app/templates")
 
 StaffUser = Annotated[
     User,
@@ -51,6 +56,7 @@ def dashboard(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     current: StaffUser,
+    ctx: Annotated[TenantContext, Depends(get_tenant_context)],
     period: Annotated[Period, Query()] = "all",
     month: Annotated[str | None, Query()] = None,
     date_from: Annotated[date | None, Query()] = None,
@@ -82,11 +88,14 @@ def dashboard(
         "current_month": current_month,
         "prev_month": prev_month,
     }
+    inst = scope_institution(ctx)
+    center_id = scope_center_id(ctx)
 
     if is_coordinator(current):
         ops = compute_ops_dashboard(
             db,
-            institution_id=institution_scope(current),
+            institution_id=inst,
+            center_id=center_id,
             date_from=resolved_from,
             date_to=resolved_to,
         )
@@ -126,6 +135,8 @@ def dashboard(
     stats = compute_dashboard(
         db,
         surgeon_id=scoped_surgeon_id,
+        institution_id=inst,
+        center_id=center_id,
         date_from=resolved_from,
         date_to=resolved_to,
     )

@@ -10,7 +10,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.constants import ASSIGNABLE_CENTER_ROLES, ROLE_LABELS, UserRole
@@ -24,14 +23,23 @@ from app.models import (
     RegistrationRequest,
     User,
 )
-from app.permissions import SESSION_CENTER_KEY, TenantContext, get_tenant_context, normalize_role
+from app.permissions import SESSION_CENTER_ALL, SESSION_CENTER_KEY, TenantContext, get_tenant_context, normalize_role
 from app.security import hash_password
 from app.services.audit import write_audit
 from app.services.branding import get_theme_for_center, list_active_centers, theme_from_branding
+from app.templating import templates
 
 router = APIRouter(tags=["centers-admin"])
-templates = Jinja2Templates(directory="app/templates")
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "uploads"
+
+
+def _safe_next_url(next_url: str | None) -> str:
+    if not next_url:
+        return "/dashboard"
+    candidate = next_url.strip()
+    if candidate.startswith("/") and not candidate.startswith("//"):
+        return candidate
+    return "/dashboard"
 
 
 def _save_upload(file: UploadFile | None, prefix: str) -> str | None:
@@ -226,12 +234,36 @@ def switch_active_center(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     current: Annotated[User, Depends(require_roles(UserRole.GENERAL_ADMIN))],
-    center_id: Annotated[int, Form()],
+    center_id: Annotated[str, Form()],
+    next: Annotated[str | None, Form()] = None,
 ):
-    center = db.get(Center, center_id)
+    redirect_to = _safe_next_url(next)
+    raw = (center_id or "").strip().lower()
+    if raw in {SESSION_CENTER_ALL, "0", ""}:
+        request.session[SESSION_CENTER_KEY] = SESSION_CENTER_ALL
+        write_audit(
+            db,
+            action="switch_active_center",
+            entity_type="center",
+            entity_id=None,
+            actor_user_id=current.id,
+            center_id=None,
+            after={"mode": "all"},
+        )
+        db.commit()
+        flash(request, "Vista: todos los centros", "success")
+        return RedirectResponse(redirect_to, status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        cid = int(raw)
+    except (TypeError, ValueError):
+        flash(request, "Centro no válido.", "danger")
+        return RedirectResponse(redirect_to, status_code=status.HTTP_303_SEE_OTHER)
+
+    center = db.get(Center, cid)
     if not center:
         flash(request, "Centro no encontrado.", "danger")
-        return RedirectResponse("/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(redirect_to, status_code=status.HTTP_303_SEE_OTHER)
     request.session[SESSION_CENTER_KEY] = center.id
     write_audit(
         db,
@@ -243,7 +275,7 @@ def switch_active_center(
     )
     db.commit()
     flash(request, f"Centro activo: {center.short_name}", "success")
-    return RedirectResponse("/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(redirect_to, status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/admin/audit", response_class=HTMLResponse)

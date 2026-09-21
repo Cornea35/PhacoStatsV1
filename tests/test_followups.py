@@ -158,3 +158,24 @@ def test_refractive_page_not_on_dashboard(client: TestClient, seed_users):
     assert response.status_code == 200
     assert "Resultados refractivos" in response.text
     assert "EQ. ESFÉRICO" in response.text
+
+
+def test_refractive_surgeon_filter_accepts_empty_and_id(
+    client: TestClient,
+    db_session: Session,
+    seed_users,
+):
+    """Empty rx_surgeon (Todos) must not 422; selecting a surgeon must 200."""
+    login(client, "admin", "admin123")
+    empty = client.get("/refractive?rx_surgeon=")
+    assert empty.status_code == 200
+    assert 'name="rx_surgeon"' in empty.text
+
+    sid = seed_users["surgeon"].id
+    filtered = client.get(f"/refractive?rx_surgeon={sid}")
+    assert filtered.status_code == 200
+    assert f'value="{sid}"' in filtered.text
+    assert "selected" in filtered.text
+
+    export = client.get(f"/refractive/export.csv?rx_surgeon=")
+    assert export.status_code == 200

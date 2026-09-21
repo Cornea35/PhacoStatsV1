@@ -4,7 +4,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.constants import ASSIGNABLE_CENTER_ROLES, ROLE_LABELS, UserRole
@@ -15,9 +14,9 @@ from app.permissions import TenantContext, get_tenant_context, normalize_role
 from app.security import hash_password
 from app.services.audit import write_audit
 from app.services.branding import get_theme_for_center
+from app.templating import templates
 
 router = APIRouter(prefix="/users", tags=["users"])
-templates = Jinja2Templates(directory="app/templates")
 
 ManagerDep = Annotated[
     User,
@@ -50,7 +49,9 @@ def _available_roles(manager: User) -> list[str]:
 
 def _users_queryset(db: Session, ctx: TenantContext) -> list[User]:
     q = db.query(User).order_by(User.role, User.username)
-    if not ctx.is_general_admin:
+    if ctx.is_general_admin and ctx.view_all:
+        return q.all()
+    if ctx.institution_code:
         q = q.filter(User.institution_id == ctx.institution_code)
     return q.all()
 

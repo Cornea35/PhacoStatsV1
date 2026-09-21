@@ -8,20 +8,19 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.constants import UserRole
 from app.database import get_db
 from app.deps import pop_flashes, require_roles
 from app.models import User
-from app.permissions import TenantContext, get_tenant_context
+from app.permissions import TenantContext, get_tenant_context, scope_center_id, scope_institution
 from app.services.branding import get_theme_for_center
 from app.services.date_range import Period, resolve_date_range
 from app.services.surgical_risk import build_surgical_risk_profile
+from app.templating import templates
 
 router = APIRouter(tags=["surgical-risk"])
-templates = Jinja2Templates(directory="app/templates")
 
 
 def _profile_payload(profile):
@@ -97,10 +96,8 @@ def admin_risk_profile(
     resolved_from, resolved_to, period, month_value, range_label = resolve_date_range(
         period=period, month=month, date_from=date_from, date_to=date_to
     )
-    center_id = None if ctx.is_general_admin and not ctx.center_id else ctx.center_id
-    # Center admin always scoped; general admin uses active center when set
-    if not ctx.is_general_admin:
-        center_id = ctx.center_id
+    center_id = scope_center_id(ctx)
+    institution_code = None if center_id is not None else scope_institution(ctx)
 
     surgeon_name = "Todos los cirujanos"
     sid = surgeon_id
@@ -111,7 +108,7 @@ def admin_risk_profile(
     profile = build_surgical_risk_profile(
         db,
         center_id=center_id,
-        institution_code=None if center_id else ctx.institution_code,
+        institution_code=institution_code,
         surgeon_id=sid,
         surgeon_name=surgeon_name,
         date_from=resolved_from,

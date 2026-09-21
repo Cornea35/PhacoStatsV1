@@ -5,7 +5,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.constants import VISIT_TYPE_LABELS, VisitType, UserRole
@@ -21,9 +20,9 @@ from app.services.followups import (
     void_follow_up,
 )
 from app.services.surgeries import get_surgery_detail
+from app.templating import templates
 
 router = APIRouter(prefix="/surgeries", tags=["followups"])
-templates = Jinja2Templates(directory="app/templates")
 
 StaffDep = Annotated[
     User,
