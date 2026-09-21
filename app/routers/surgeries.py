@@ -58,17 +58,42 @@ ClinicalWriteDep = Annotated[
 ]
 
 
-def _surgeons(db: Session, *, institution_id: str | None = None) -> list[User]:
-    q = db.query(User).filter(User.role == UserRole.SURGEON.value, User.is_active.is_(True))
+def _surgeons(
+    db: Session,
+    *,
+    institution_id: str | None = None,
+    include_user_id: int | None = None,
+) -> list[User]:
+    q = db.query(User).filter(User.role == UserRole.SURGEON.value)
+    if include_user_id is not None:
+        q = q.filter((User.is_active.is_(True)) | (User.id == include_user_id))
+    else:
+        q = q.filter(User.is_active.is_(True))
     if institution_id:
         q = q.filter(User.institution_id == institution_id)
     return q.order_by(User.full_name).all()
 
 
+def _optional_form_int(value: str | int | None) -> int | None:
+    """Coerce form ints; empty strings become None (avoids FastAPI 422)."""
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return int(text)
+    except (TypeError, ValueError):
+        return None
+
+
 def _form_context(current: User, db: Session, surgery=None, selected_risks: list[str] | None = None):
+    include_id = surgery.surgeon_id if surgery is not None else None
     return {
         "user": current,
-        "surgeons": _surgeons(db),
+        "surgeons": _surgeons(db, include_user_id=include_id),
         "eyes": EyeSide,
         "risk_catalog": RISK_FACTOR_CATALOG,
         "complication_types": ComplicationType,
@@ -80,6 +105,7 @@ def _form_context(current: User, db: Session, surgery=None, selected_risks: list
         "iol_types": IOL_TYPE_OPTIONS,
         "surgery": surgery,
         "selected_risks": selected_risks or [],
+        "can_edit_surgery": has_permission(current, Permission.EDIT_SURGERY),
     }
 
 
@@ -136,7 +162,7 @@ def surgeries_list(
     followup_pending: Annotated[str, Query()] = "",
     eye: Annotated[str, Query()] = "",
     technique: Annotated[str, Query()] = "",
-    surgeon_id: Annotated[int | None, Query()] = None,
+    surgeon_id: Annotated[str | None, Query()] = None,
     date_from: Annotated[date | None, Query()] = None,
     date_to: Annotated[date | None, Query()] = None,
 ):
@@ -148,7 +174,7 @@ def surgeries_list(
     pending = followup_pending in {"1", "on", "yes", "true"}
     eye_f = eye if eye in {e.value for e in EyeSide} else None
     tech = (technique or "").strip() or None
-    filter_surgeon = None if own_surgeon else surgeon_id
+    filter_surgeon = None if own_surgeon else _optional_form_int(surgeon_id)
 
     items = list_surgeries(
         db,
@@ -215,6 +241,7 @@ def surgeries_list(
             "filters_active": filters_active,
             "result_count": len(items),
             "scoped": own_surgeon is not None,
+            "can_edit_surgery": has_permission(current, Permission.EDIT_SURGERY),
         },
     )
 
@@ -240,7 +267,7 @@ def surgery_create(
     eye: Annotated[str, Form()],
     technique: Annotated[str, Form()] = "Phacoemulsification",
     notes: Annotated[str, Form()] = "",
-    surgeon_id: Annotated[int | None, Form()] = None,
+    surgeon_id: Annotated[str | None, Form()] = None,
     iol_type: Annotated[str, Form()] = "",
     risk_codes: Annotated[list[str], Form()] = [],
     complication_occurred: Annotated[str | None, Form()] = None,
@@ -255,9 +282,10 @@ def surgery_create(
     segment_ring_suture: Annotated[str | None, Form()] = None,
     f2_assistant_help: Annotated[str | None, Form()] = None,
 ):
-    if current.role == UserRole.SURGEON.value:
-        surgeon_id = current.id
-    if surgeon_id is None:
+    resolved_surgeon_id = (
+        current.id if current.role == UserRole.SURGEON.value else _optional_form_int(surgeon_id)
+    )
+    if resolved_surgeon_id is None:
         flash(request, "Debe indicar un cirujano.", "danger")
         return RedirectResponse("/surgeries/new", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -282,7 +310,7 @@ def surgery_create(
             eye=eye,
             technique=technique,
             notes=notes,
-            surgeon_id=surgeon_id,
+            surgeon_id=resolved_surgeon_id,
             created_by=current,
             risk_codes=list(risk_codes or []),
             complication=complication,
@@ -341,6 +369,7 @@ def surgery_detail(
             "visit_labels": VISIT_TYPE_LABELS,
             "orientation_labels": ORIENTATION_LABELS,
             "flashes": pop_flashes(request),
+            "can_edit_surgery": has_permission(current, Permission.EDIT_SURGERY),
             "can_manage_reintervention": has_permission(
                 current, Permission.MANAGE_REINTERVENTION
             )
@@ -385,7 +414,7 @@ def surgery_edit_submit(
     eye: Annotated[str, Form()],
     technique: Annotated[str, Form()] = "Phacoemulsification",
     notes: Annotated[str, Form()] = "",
-    surgeon_id: Annotated[int | None, Form()] = None,
+    surgeon_id: Annotated[str | None, Form()] = None,
     iol_type: Annotated[str, Form()] = "",
     risk_codes: Annotated[list[str], Form()] = [],
     complication_occurred: Annotated[str | None, Form()] = None,
@@ -408,9 +437,10 @@ def surgery_edit_submit(
         flash(request, "No puede editar cirugías de otros cirujanos.", "danger")
         return RedirectResponse("/surgeries", status_code=status.HTTP_303_SEE_OTHER)
 
-    if current.role == UserRole.SURGEON.value:
-        surgeon_id = current.id
-    if surgeon_id is None:
+    resolved_surgeon_id = (
+        current.id if current.role == UserRole.SURGEON.value else _optional_form_int(surgeon_id)
+    )
+    if resolved_surgeon_id is None:
         flash(request, "Debe indicar un cirujano.", "danger")
         return RedirectResponse(f"/surgeries/{surgery_id}/edit", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -436,7 +466,7 @@ def surgery_edit_submit(
             eye=eye,
             technique=technique,
             notes=notes,
-            surgeon_id=surgeon_id,
+            surgeon_id=resolved_surgeon_id,
             risk_codes=list(risk_codes or []),
             complication=complication,
             iol_type=iol_type or None,

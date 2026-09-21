@@ -6,7 +6,9 @@
     <h1 class="h3 mb-1"><code>{{ surgery.case_code }}</code></h1>
     <p class="text-muted mb-0">{{ surgery.surgery_date }} · {{ surgery.eye }} · {{ surgery.surgeon.full_name }}</p>
   </div>
+  {% if can_edit_surgery %}
   <a class="btn btn-outline-primary" href="/surgeries/{{ surgery.id }}/edit">Editar</a>
+  {% endif %}
 </div>
 
 <div class="row g-3">

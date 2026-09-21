@@ -97,7 +97,9 @@
         </td>
         <td class="text-end">
           <a class="btn btn-sm btn-outline-secondary" href="/surgeries/{{ s.id }}">Ver</a>
+          {% if can_edit_surgery %}
           <a class="btn btn-sm btn-outline-primary" href="/surgeries/{{ s.id }}/edit">Editar</a>
+          {% endif %}
           {% if user.role in ['admin', 'surgeon'] %}
           <a class="btn btn-sm btn-outline-primary" href="/reinterventions/new?surgery_id={{ s.id }}">Reintervención</a>
           {% endif %}

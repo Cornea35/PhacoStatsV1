@@ -4,7 +4,8 @@
 <h1 class="h3 mb-3">{% if surgery %}Editar cirugía{% else %}Registrar cirugía{% endif %}</h1>
 <p class="alert alert-warning py-2">Use únicamente códigos anónimos (p. ej. CASE-0007). No introduzca nombres ni historias clínicas reales.</p>
 
-<form method="post" class="card card-body shadow-sm" id="surgeryForm">
+<form method="post" class="card card-body shadow-sm" id="surgeryForm"
+      action="{% if surgery %}/surgeries/{{ surgery.id }}/edit{% else %}/surgeries/new{% endif %}">
   <div class="row g-3">
     <div class="col-md-4">
       <label class="form-label" for="case_code">Código de caso *</label>
@@ -14,7 +15,7 @@
     <div class="col-md-4">
       <label class="form-label" for="surgery_date">Fecha *</label>
       <input class="form-control" type="date" id="surgery_date" name="surgery_date" required
-             value="{{ surgery.surgery_date if surgery else '' }}">
+             value="{{ surgery.surgery_date.isoformat() if surgery else '' }}">
     </div>
     <div class="col-md-4">
       <label class="form-label" for="eye">Ojo *</label>
@@ -45,8 +46,11 @@
       <input class="form-control" value="{{ user.full_name }}" disabled>
       {% else %}
       <select class="form-select" id="surgeon_id" name="surgeon_id" required>
+        {% if not surgery %}
+        <option value="" disabled selected>Seleccione…</option>
+        {% endif %}
         {% for s in surgeons %}
-        <option value="{{ s.id }}" {% if surgery and surgery.surgeon_id == s.id %}selected{% endif %}>{{ s.full_name }}</option>
+        <option value="{{ s.id }}" {% if surgery and surgery.surgeon_id == s.id %}selected{% endif %}>{{ s.full_name }}{% if not s.is_active %} (inactivo){% endif %}</option>
         {% endfor %}
       </select>
       {% endif %}

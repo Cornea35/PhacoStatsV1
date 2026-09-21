@@ -303,3 +303,101 @@ def test_surgeries_list_search_filters_for_all_roles(
     assert "SEARCH-B2" in own.text
     assert "OTHER-X9" not in own.text
     assert "Vista filtrada a sus cirugías" in own.text
+
+
+def test_edit_surgery_by_account_type(
+    client: TestClient,
+    db_session: Session,
+    seed_users: dict[str, User],
+):
+    surgery = Surgery(
+        case_code="EDIT-ROLE-1",
+        surgery_date=date(2026, 6, 1),
+        eye="OD",
+        technique="Phacoemulsification",
+        surgeon_id=seed_users["surgeon"].id,
+        created_by_id=seed_users["admin"].id,
+        complication=ComplicationEvent(occurred=False),
+    )
+    other = Surgery(
+        case_code="EDIT-ROLE-2",
+        surgery_date=date(2026, 6, 2),
+        eye="OS",
+        technique="Phacoemulsification",
+        surgeon_id=seed_users["surgeon2"].id,
+        created_by_id=seed_users["admin"].id,
+        complication=ComplicationEvent(occurred=False),
+    )
+    db_session.add_all([surgery, other])
+    db_session.commit()
+    db_session.refresh(surgery)
+    db_session.refresh(other)
+
+    # Admin can edit any case; empty surgeon_id must not 422
+    login(client, "admin", "admin123")
+    assert client.get(f"/surgeries/{surgery.id}/edit").status_code == 200
+    assert 'action="/surgeries/%s/edit"' % surgery.id in client.get(
+        f"/surgeries/{surgery.id}/edit"
+    ).text
+    empty = client.post(
+        f"/surgeries/{surgery.id}/edit",
+        data={
+            "case_code": "EDIT-ROLE-1",
+            "surgery_date": "2026-06-01",
+            "eye": "OD",
+            "technique": "Phacoemulsification",
+            "notes": "",
+            "surgeon_id": "",
+            "iol_type": "",
+        },
+        follow_redirects=False,
+    )
+    assert empty.status_code == 303
+    assert empty.headers["location"] == f"/surgeries/{surgery.id}/edit"
+
+    ok = client.post(
+        f"/surgeries/{surgery.id}/edit",
+        data={
+            "case_code": "EDIT-ROLE-1A",
+            "surgery_date": "2026-06-03",
+            "eye": "OS",
+            "technique": "Phacoemulsification",
+            "notes": "admin edit",
+            "surgeon_id": str(seed_users["surgeon"].id),
+            "iol_type": "",
+        },
+        follow_redirects=False,
+    )
+    assert ok.status_code == 303
+    assert ok.headers["location"] == f"/surgeries/{surgery.id}"
+    db_session.refresh(surgery)
+    assert surgery.case_code == "EDIT-ROLE-1A"
+    assert surgery.eye == "OS"
+
+    # Surgeon can edit own case
+    login(client, "surgeon", "surgeon123")
+    own_edit = client.post(
+        f"/surgeries/{surgery.id}/edit",
+        data={
+            "case_code": "EDIT-ROLE-1B",
+            "surgery_date": "2026-06-04",
+            "eye": "OD",
+            "technique": "Phacoemulsification",
+            "notes": "surgeon edit",
+            "surgeon_id": str(seed_users["surgeon"].id),
+            "iol_type": "",
+        },
+        follow_redirects=False,
+    )
+    assert own_edit.status_code == 303
+    assert own_edit.headers["location"] == f"/surgeries/{surgery.id}"
+
+    # Surgeon cannot edit another surgeon's case
+    denied = client.get(f"/surgeries/{other.id}/edit", follow_redirects=False)
+    assert denied.status_code == 303
+    assert denied.headers["location"] == "/surgeries"
+
+    # Coordinator cannot edit clinical cases
+    login(client, "coord", "coord123")
+    assert client.get(f"/surgeries/{surgery.id}/edit").status_code == 403
+    assert f'/surgeries/{surgery.id}/edit' not in client.get("/surgeries").text
