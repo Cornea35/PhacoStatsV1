@@ -202,7 +202,10 @@ def update_surgery(
     surgery.notes = notes.strip() if notes else None
     surgery.surgeon_id = surgeon_id
 
+    # Clear + re-add must flush deletes first; otherwise SQLite/Postgres hit
+    # UNIQUE(surgery_id, code) when keeping the same risk codes.
     surgery.risk_factors.clear()
+    db.flush()
     for code in _normalize_risk_codes(risk_codes):
         surgery.risk_factors.append(RiskFactor(code=code))
 

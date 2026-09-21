@@ -94,9 +94,6 @@
         <label class="form-label small" for="rx_to">Visita hasta</label>
         <input class="form-control form-control-sm" type="date" id="rx_to" name="rx_to" value="{{ rx_to }}">
       </div>
-      <div class="col-md-2">
-        <button class="btn btn-sm btn-primary" type="submit">Aplicar</button>
-      </div>
     </form>
     <p class="text-muted small mb-0 mt-3">Cirugías: <strong>{{ range_label }}</strong></p>
   </div>
@@ -224,6 +221,8 @@
   const rxWindow = document.getElementById("rx_window");
   const rxFromField = document.getElementById("rxFromField");
   const rxToField = document.getElementById("rxToField");
+  const rxFrom = document.getElementById("rx_from");
+  const rxTo = document.getElementById("rx_to");
   if (!form || !period) return;
 
   const syncFields = () => {
@@ -237,9 +236,60 @@
     const customVisit = rxWindow && rxWindow.value === "custom";
     if (rxFromField) rxFromField.classList.toggle("d-none", !customVisit);
     if (rxToField) rxToField.classList.toggle("d-none", !customVisit);
+    if (rxFrom) rxFrom.disabled = !customVisit;
+    if (rxTo) rxTo.disabled = !customVisit;
   };
-  period.addEventListener("change", syncFields);
-  if (rxWindow) rxWindow.addEventListener("change", syncFields);
+
+  const submitNow = () => {
+    syncFields();
+    const params = new URLSearchParams();
+    new FormData(form).forEach((value, key) => {
+      const text = String(value ?? "").trim();
+      if (text !== "") params.append(key, text);
+    });
+    const qs = params.toString();
+    window.location.assign(qs ? `/refractive?${qs}` : "/refractive");
+  };
+
+  const maybeSubmitPeriod = () => {
+    syncFields();
+    if (period.value === "all") return submitNow();
+    if (period.value === "month" && monthInput.value) return submitNow();
+    if (period.value === "custom" && fromInput.value && toInput.value) return submitNow();
+  };
+
+  form.querySelectorAll("select").forEach((sel) => {
+    sel.addEventListener("change", () => {
+      if (sel === period) return maybeSubmitPeriod();
+      if (sel === rxWindow) {
+        syncFields();
+        if (rxWindow.value !== "custom") return submitNow();
+        if (rxFrom && rxTo && rxFrom.value && rxTo.value) return submitNow();
+        return;
+      }
+      submitNow();
+    });
+  });
+
+  if (monthInput) {
+    monthInput.addEventListener("change", () => {
+      if (period.value === "month" && monthInput.value) submitNow();
+    });
+  }
+  const maybeSubmitCustomSurgery = () => {
+    if (period.value === "custom" && fromInput.value && toInput.value) submitNow();
+  };
+  if (fromInput) fromInput.addEventListener("change", maybeSubmitCustomSurgery);
+  if (toInput) toInput.addEventListener("change", maybeSubmitCustomSurgery);
+
+  const maybeSubmitCustomVisit = () => {
+    if (rxWindow && rxWindow.value === "custom" && rxFrom && rxTo && rxFrom.value && rxTo.value) {
+      submitNow();
+    }
+  };
+  if (rxFrom) rxFrom.addEventListener("change", maybeSubmitCustomVisit);
+  if (rxTo) rxTo.addEventListener("change", maybeSubmitCustomVisit);
+
   syncFields();
 })();
 </script>

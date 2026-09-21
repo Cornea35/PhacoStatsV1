@@ -67,11 +67,11 @@ uvicorn app.main:app --host 127.0.0.1 --port 8001
 
 ## Logo Hospital Universitario UANL
 
-1. Obtener archivo oficial (PNG transparente o SVG)
-2. `Centros` → fila UANL → campo **Logo PNG/SVG** → Guardar branding
-3. Hasta entonces se muestra el placeholder tipográfico configurado
+El escudo oficial está versionado en `app/static/img/hu_uanl_logo.png` y se asigna
+automáticamente al centro `HU_UANL` al arrancar / migrar.
 
-Archivos se guardan en `app/static/uploads/` (no versionar logos institucionales sensibles si aplica política local).
+Para sustituirlo desde la UI: `Centros` → UANL → **Logo PNG/SVG** → Guardar branding
+(archivos subidos quedan en `app/static/uploads/`).
 
 ## Surgical Risk Profile
 

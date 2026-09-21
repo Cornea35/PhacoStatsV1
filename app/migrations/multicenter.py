@@ -54,6 +54,7 @@ def _branding(
     secondary: str,
     accent: str,
     placeholder: str | None = None,
+    logo_path: str | None = None,
 ) -> CenterBranding:
     return CenterBranding(
         short_name=short_name,
@@ -63,8 +64,12 @@ def _branding(
         accent_color=accent,
         text_color="#1a1a1a",
         show_powered_by=True,
-        placeholder_label=placeholder,
+        placeholder_label=placeholder if not logo_path else None,
+        logo_path=logo_path,
     )
+
+
+UANL_OFFICIAL_LOGO = "img/hu_uanl_logo.png"
 
 
 def ensure_default_centers(db: Session) -> dict[str, Center]:
@@ -107,15 +112,33 @@ def ensure_default_centers(db: Session) -> dict[str, Center]:
                     'Hospital Universitario "Dr. José Eleuterio González" '
                     "– Universidad Autónoma de Nuevo León"
                 ),
-                primary="#003366",
-                secondary="#001a33",
+                primary="#7a0019",
+                secondary="#4a000f",
                 accent="#c9a227",
-                placeholder="Hospital Universitario UANL",
+                logo_path=UANL_OFFICIAL_LOGO,
             ),
         )
         db.add(uanl)
         db.flush()
         by_code[CENTER_CODE_UANL] = uanl
+    else:
+        # Idempotent: attach official logo if the center still uses placeholder only
+        uanl = by_code[CENTER_CODE_UANL]
+        branding = uanl.branding
+        if branding is None:
+            branding = _branding(
+                short_name=uanl.short_name,
+                full_name=uanl.full_name,
+                primary="#7a0019",
+                secondary="#4a000f",
+                accent="#c9a227",
+                logo_path=UANL_OFFICIAL_LOGO,
+            )
+            branding.center_id = uanl.id
+            db.add(branding)
+        elif not branding.logo_path:
+            branding.logo_path = UANL_OFFICIAL_LOGO
+            branding.placeholder_label = None
 
     db.commit()
     return {c.code: c for c in db.query(Center).all()}

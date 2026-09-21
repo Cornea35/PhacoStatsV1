@@ -305,6 +305,51 @@ def test_surgeries_list_search_filters_for_all_roles(
     assert "Vista filtrada a sus cirugías" in own.text
 
 
+def test_edit_surgery_keeps_same_risk_factors(
+    client: TestClient,
+    db_session: Session,
+    seed_users: dict[str, User],
+):
+    """Re-saving with the same risk codes must not hit UNIQUE(surgery_id, code)."""
+    surgery = Surgery(
+        case_code="EDIT-RISK-1",
+        surgery_date=date(2026, 6, 1),
+        eye="OD",
+        technique="Phacoemulsification",
+        surgeon_id=seed_users["surgeon"].id,
+        created_by_id=seed_users["admin"].id,
+        risk_factors=[RiskFactor(code="small_pupil"), RiskFactor(code="dense_cataract")],
+        complication=ComplicationEvent(occurred=False),
+    )
+    db_session.add(surgery)
+    db_session.commit()
+    db_session.refresh(surgery)
+
+    login(client, "admin", "admin123")
+    resp = client.post(
+        f"/surgeries/{surgery.id}/edit",
+        data={
+            "case_code": "EDIT-RISK-1",
+            "surgery_date": "2026-06-01",
+            "eye": "OS",
+            "technique": "Phacoemulsification",
+            "notes": "keep risks",
+            "surgeon_id": str(seed_users["surgeon"].id),
+            "iol_type": "monofocal",
+            "risk_codes": ["small_pupil", "dense_cataract"],
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert resp.headers["location"] == f"/surgeries/{surgery.id}"
+    db_session.refresh(surgery)
+    assert surgery.eye == "OS"
+    assert sorted(rf.code for rf in surgery.risk_factors) == [
+        "dense_cataract",
+        "small_pupil",
+    ]
+
+
 def test_edit_surgery_by_account_type(
     client: TestClient,
     db_session: Session,

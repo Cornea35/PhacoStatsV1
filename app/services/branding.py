@@ -88,6 +88,18 @@ DEFAULT_THEME = BrandTheme(
 )
 
 
+def _static_asset_url(path: str | None) -> str | None:
+    """Resolve branding file path under /static (uploads/ or img/)."""
+    if not path:
+        return None
+    cleaned = path.replace("\\", "/").lstrip("/")
+    if cleaned.startswith("static/"):
+        return f"/{cleaned}"
+    if cleaned.startswith("img/") or cleaned.startswith("uploads/"):
+        return f"/static/{cleaned}"
+    return f"/static/uploads/{cleaned}"
+
+
 def theme_from_branding(center: Center | None, branding: CenterBranding | None) -> BrandTheme:
     if center is None:
         return DEFAULT_THEME
@@ -121,9 +133,9 @@ def theme_from_branding(center: Center | None, branding: CenterBranding | None) 
         accent=b.accent_color or "#c9a227",
         text=b.text_color or "#1a1a1a",
         on_primary=accessible_text_on(primary),
-        logo_url=f"/static/uploads/{b.logo_path}" if b.logo_path else None,
-        logo_dark_url=f"/static/uploads/{b.logo_dark_path}" if b.logo_dark_path else None,
-        cover_url=f"/static/uploads/{b.cover_image_path}" if b.cover_image_path else None,
+        logo_url=_static_asset_url(b.logo_path),
+        logo_dark_url=_static_asset_url(b.logo_dark_path),
+        cover_url=_static_asset_url(b.cover_image_path),
         placeholder=b.placeholder_label,
         show_powered_by=bool(b.show_powered_by),
         report_header=b.report_header_text,

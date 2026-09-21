@@ -39,6 +39,11 @@ def test_center_branding_api_switches_theme(client: TestClient):
     assert uanl.status_code == 200
     assert uanl.json()["short_name"].startswith("Hospital Universitario")
     assert uanl.json()["primary"] != codet.json()["primary"] or uanl.json()["accent"]
+    assert uanl.json()["logo_url"]
+    assert "hu_uanl_logo" in uanl.json()["logo_url"]
+    logo = client.get(uanl.json()["logo_url"])
+    assert logo.status_code == 200
+    assert logo.headers["content-type"].startswith("image/")
 
 
 def test_register_without_role_and_pending_blocks_login(
